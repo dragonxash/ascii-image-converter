@@ -3,12 +3,13 @@
 一个把照片变成字符画（ASCII Art）的安卓 App，**双向可用**：图片能转成字符画，字符画也能转回图片。从 [tAsciiArtPlayer](https://github.com/Tans5/tAsciiArtPlayer) 的图片转换模块抽出来独立成型，去掉了视频播放和文件传输那一整套依赖，安装包从 45MB 压到 1.6MB 左右。
 
 - **包名**：`com.dragonxash.asciiconverter`
-- **版本**：1.4.5（versionCode 13）
+- **版本**：1.5.0（versionCode 14）
 - **系统要求**：Android 8.0（API 26）及以上
 - **联网**：不联网。整个转换流程纯本地跑，不上传任何图片。
-- **界面语言**：默认简体中文，可在右上角菜单里切换（中文 / English / 跟随系统）
+- **界面语言**：默认简体中文，可在右上角菜单里切换（简体中文 / English / **日本語** / 跟随系统）
 
 > **版本沿革**
+> - **1.5.0** — **新增日文界面**（第 3 门语言）。加一门语言要同时动四处（枚举 + 资源目录 + `locales_config` + `localeFilters`），**任何一处漏掉都是静默失效**：漏资源会静默回退成中文、漏 `localeFilters` 会被 aapt 直接裁掉资源（装机后"选日语没反应"）。为此补了 `verify_locales.py` 把四处钉住（含反向验证），校验脚本变成**根目录 11 个 / `deliver/` 10 个**。见 `更新说明-1.5.0.md`
 > - **1.4.5** — 修掉**「点拍照 → 选图 → 回来还是显示『还没有图片』，而且一声不吭」**。根因是 androidx 的 `TakePicture` 契约只做 `putExtra(EXTRA_OUTPUT, uri)`、**一次 `addFlags` 都没有**（反汇编 1.11.0 确认），相机拿不到我们 FileProvider Uri 的写权限，拍完文件还是 0 字节。修法：换 `StartActivityForResult` 自己发 intent（能拿回传 Intent）、启动前**按包名 `grantUriPermission`**、加三条回退路（文件 / 回传 Uri / 缩略图 Bitmap）、拿不到图时**弹框并给「改用选图」的出口**、待回填文件进 `savedInstanceState`。`verify_source_pipeline.py` 加了 13 项检查（51 → 64）。见 `更新说明-1.4.5.md`
 > - **1.4.4** — 修掉 1.4.3 的**「一挪动就跳回左上角」**：根因是 `OverScroller.fling()` 的起始滚动位置被写成了 `0, 0`，而推进惯性的回调里是 `offsetX = scroller.currX`，于是松手第一帧就把平移量按回 0。改成从**当前**平移量起步，并补上「起新惯性前先撤掉上一轮回调」。`verify_preview_zoom.py` 相应加了 3 条检查（50 → 53 项），其中起始位置那条做了反向验证。见 `更新说明-1.4.4.md`
 > - **1.4.3** — **预览区支持双指缩放**：图片预览和样式设置里的「文本预览」都能捏合放大（1×~8×，按住的那个点停在原地），放大后右下角出现 `1.8× 复位` 角标，往里捏到底也能复位。为此把预览区的 `ScrollView` 换成自写的 `ZoomPaneLayout`（缩放 + 拖动 + 两轴滚动 + 惯性滑动），并专门保住文本预览的**长按选字**。见 `更新说明-1.4.3.md`
@@ -31,7 +32,7 @@
 
 | 文件 | 大小 | 说明 |
 | --- | --- | --- |
-| `ASCII图片转换器-1.4.5.apk` | **约 1.6 MB** | **通用包**，所有机型都能装，推荐 |
+| `ASCII图片转换器-1.5.0.apk` | **约 1.6 MB** | **通用包**，所有机型都能装，推荐 |
 | `app-debug.apk` | 约 6.2 MB | 调试包，仅供排查问题，一般不用装（**要看崩溃日志就装这个**，`Diagnostics` 会把完整堆栈落盘） |
 
 直传到手机点击安装即可。如果提示「未知来源应用被禁止」，去系统设置里给对应的文件管理器或浏览器开一下「允许安装未知应用」权限。
@@ -55,7 +56,7 @@
 | **文字结果** | 工具栏 `A` 图标 | 打开字符画正文面板：复制 / 存 TXT / 分享 TXT。详见下节 |
 | 分享 | 底部「分享」 | 把 PNG 通过任意 App 分享出去 |
 | 样式 | 右上角菜单 / 底部 | 打开样式设置面板 |
-| 语言 | 右上角菜单 | 简体中文 / English / 跟随系统。默认简体中文 |
+| 语言 | 右上角菜单 | 简体中文 / English / 日本語 / 跟随系统。默认简体中文 |
 | 关于 | 右上角菜单 | 版本信息 |
 | 查看上次错误 | 右上角菜单 | 出错时把完整堆栈调出来，可一键复制。见 `排错说明-如何取错误详情.md` |
 
@@ -383,19 +384,14 @@
 
 release 包用固定密钥签名，**所有版本共用同一个密钥**，所以可以直接覆盖安装升级。
 
-> **keystore 不在本仓库里。** 要自己出签名 release 包，把 keystore 放到
-> `AsciiConverterApp/keystore/`，再在 `AsciiConverterApp/` 下建一个 `keystore.properties`
-> （已被 `.gitignore` 忽略）：
+> **keystore 与口令不写在本文档里。** 实际值在
+> `AsciiConverterApp/keystore.properties`（本机开发用，不入版本库），
+> 密钥文件在 `AsciiConverterApp/keystore/asciiconverter.jks`——
+> **这两个都要留好**，以后发新版本必须用同一个密钥签，否则手机不认，只能卸载重装。
 >
-> ```properties
-> storeFile=keystore/asciiconverter.jks
-> storePassword=<你的口令>
-> keyAlias=asciiconverter
-> keyPassword=<你的口令>
-> ```
->
-> 没有 `keystore.properties` 时，release 会打成**未签名**包，仍然能正常编译，
-> 所以克隆下来直接构建不会卡住。
+> 要自己出签名 release 包，把它们按上面的路径放好即可；`build.gradle.kts`
+> 会自动读 `keystore.properties`。**没有这个文件时 release 会打成未签名包**，
+> 仍然能正常编译，所以别人克隆仓库下来直接构建不会卡住。
 
 | 项 | 值 |
 | --- | --- |
@@ -479,7 +475,7 @@ app/src/main/java/com/dragonxash/asciiconverter/
     ├── PictureDecoder.kt       图片解码 + EXIF 方向校正（**只收 File，不收 Uri**）
     ├── ContentStreams.kt       统一的多策略 Uri 读取（7 种打开方式轮着试 + 带退避重试 + 失败时探测 provider 元信息），图片 / 文本共用，含编码嗅探
     ├── TextSource.kt           剪贴板读写 + TXT 文件读取
-    ├── AppLanguage.kt          界面语言：中/英/跟随系统，默认中文
+    ├── AppLanguage.kt          界面语言：中/英/日/跟随系统，默认中文（加语言要同时改四处，见 verify_locales.py）
     ├── AsciiArtExporter.kt     导出：MediaStore 存 PNG/TXT、缓存 + FileProvider 分享
     ├── Diagnostics.kt          错误取证：完整堆栈落盘 + 弹窗展示
     └── ThumbnailLoader.kt      缩略图内存缓存（只收 File）
@@ -491,9 +487,12 @@ app/src/main/java/com/dragonxash/asciiconverter/
 
 **已验证**
 
-- debug 与 release 均编译通过（**1.4.5 release + debug 一次构建通过**；1.4.4 一次过 3 分 55 秒；1.4.3 一次过 4 分 40 秒；各版**代码级编译警告都是 0 条**；1.4.1 release 全量构建 4 分 40 秒 / debug 2 分 14 秒；1.4.0 release 全量构建 5 分 8 秒）
+- debug 与 release 均编译通过（**1.5.0 release + debug 一次构建通过，1 分 50 秒**；1.4.5 一次构建通过；1.4.4 一次过 3 分 55 秒；各版**代码级编译警告都是 0 条**；1.4.1 release 全量构建 4 分 40 秒 / debug 2 分 14 秒；1.4.0 release 全量构建 5 分 8 秒）
 - release 包 `apksigner verify` 通过（**v2 方案**，1 个签名者，证书信息见上，与 1.0.x 同一密钥）
-- `aapt2 dump badging` 核对：包名 `com.dragonxash.asciiconverter`、versionCode **13**、versionName **1.4.5**、minSdk 26、targetSdk 36、应用名「ASCII 图片转换器」、启动 Activity `MainActivity`、中英文两套应用名都在；
+- `aapt2 dump badging` 核对：包名 `com.dragonxash.asciiconverter`、versionCode **14**、versionName **1.5.0**、minSdk 26、targetSdk 36、应用名「ASCII 图片转换器」、启动 Activity `MainActivity`；
+  **1.5.0 起报 `locales: '--_--' 'en' 'ja'`**（`--_--` 就是中文默认资源），
+  `aapt2 dump resources` 里 `string/app_name` 同时有 `()`中文、`(en)`英文、`(ja)「ASCII 画像コンバーター」`三份，
+  并已从字节层复核 `resources.arsc` 里那些日文串确实存在
   权限仍只有 `WRITE_EXTERNAL_STORAGE` 与 `READ_EXTERNAL_STORAGE`，**都是 `maxSdkVersion=28`**（Android 10+ 等于零权限）
 - **1.4.4 反汇编发布包 `classes.dex` 核对**：`dexdump` 显示 `startFling` 被 R8 内联进 `onTouchEvent`，
   `OverScroller.fling(IIIIIIII)V` 的头两个实参由 `iget ->c`（`offsetX`）、`iget ->d`（`offsetY`）各接一次 `float-to-int` 得到，
@@ -522,8 +521,17 @@ app/src/main/java/com/dragonxash/asciiconverter/
   `palette_hint` / `palette_channel` / `palette_summary_custom` / `input_out_of_range` /
   `input_hint_char_width` / `text_output_truncated` / `dither_ordered` / `settings_pc98_desc` 等
   实际值也逐条核对过，中英文占位符集合完全一致
-- **字符串格式静态检查（`verify_string_formats.py`，1.4.0 新增）**：1.4.5 实测 **161 条中文资源 / 161 条英文资源**、`getString` 调用点全部解析通过（1.4.5 新增 3 条拍照提示文案）
+- **字符串格式静态检查（`verify_string_formats.py`，1.4.0 新增）**：1.5.0 实测 **162 条中文资源 / 162 条英文资源**、`getString` 调用点全部解析通过
   全部核对通过，中英占位符集合零差异；**这个脚本做过回归验证**——把当初导致闪退的那两个字符串改回去，它确实报 2 条未通过
+- **界面语言一致性校验（`verify_locales.py`，1.5.0 新增，20 项全过）**：把「加一门语言要同时改的四处」
+  钉成结构特征——`AppLanguage` 枚举 ↔ `res/values-*` 目录 ↔ `locales_config.xml` ↔ `build.gradle.kts` 的
+  `localeFilters` **两两对齐**、`selectable` 覆盖全部语言、各语言**键集完全一致**、
+  **格式占位符的种类/数量/顺序一致**、没有裸 `%`、没有空白条目、语言菜单用的 `lang_*` 每个语言都有。
+  **做过反向验证**（三种坏法都能检出）：删掉日文的一个键 → FAIL；把 `%1$d` 改成 `%1$s` → FAIL；
+  `localeFilters` 退回 `listOf("zh","en")` → FAIL。还原后回到 20/20。
+  实测 1.5.0：**162 条 / 语言 × 3 门**，占位符零偏差。
+  语言从两门变三门后，`verify_preview_zoom.py` 与 `verify_source_pipeline.py` 里
+  **硬编码的 `zh/en` 双语言循环也一并扩成了三语言**——否则日文资源根本不在它们的视野里
 - **抖动行为独立验证（`verify_pc98_dither.py`，1.4.0 新增，22 项全过）**：三种模式的输出**全部落在调色板内**
   （黑白 2 色与标准 16 色各测一遍，0 个越界色）；不抖动 == 逐格最近色且与格子顺序无关；
   **黑白两色把纯灰 `#888888` 拼成黑白网点**（平均亮度 255 → 143，原灰 136，偏差 119 → 7）；
@@ -604,17 +612,19 @@ app/src/main/java/com/dragonxash/asciiconverter/
 
 **产物哈希**
 
-**本期（1.4.5）**
+**本期（1.5.0）**
 
 | 文件 | 大小 | SHA-256（前 32 位） |
 | --- | --- | --- |
-| `ASCII图片转换器-1.4.5.apk` | 1,665,512 字节（约 1.6 MB） | `30d2e2102688bb7f5a5d429d74b7ea91` |
-| `app-debug.apk` | 6,488,754 字节（约 6.2 MB） | `f3627a237a3d838cce00ac9c481f49e8` |
+| `ASCII图片转换器-1.5.0.apk` | 1,679,036 字节（约 1.6 MB） | `b772fe166a8700483abba678a9afc018` |
+| `app-debug.apk` | 6,504,938 字节（约 6.2 MB） | `5835a43064106153105f79d63788aa6b` |
 
 **归档（`old/`）**
 
 | 文件 | 大小 | SHA-256（前 32 位） |
 | --- | --- | --- |
+| `old/ASCII图片转换器-1.4.5.apk` | 1,665,512 字节 | `30d2e2102688bb7f5a5d429d74b7ea91` |
+| `old/app-debug-1.4.5.apk` | 6,488,754 字节 | `f3627a237a3d838cce00ac9c481f49e8` |
 | `old/ASCII图片转换器-1.4.4.apk` | 1,664,100 字节 | `e0afe2c5ee209e4566cab833fba3ae4c` |
 | `old/app-debug-1.4.4.apk` | 6,485,954 字节 | `5c164e1cabac968caa872ab480f82189` |
 | `old/ASCII图片转换器-1.4.3.apk` | 1,664,088 字节 | `18d2f06ed1155c539c740071c5e3d799` |
@@ -622,11 +632,13 @@ app/src/main/java/com/dragonxash/asciiconverter/
 
 > 本表数值为 **SHA-256 的前 32 个字符**（完整 64 位值可用 `sha256sum` 自行核对），
 > 已用 `sha256sum` 对 `deliver/` 与 `old/` 里每个文件**逐一实测**。
-> （1.4.4 release 那串此前少抄了结尾一个 `c`，长度只有 31 位，本次已补正。）
+> （1.4.4 release 那串此前少抄了结尾一个 `c`，长度只有 31 位，1.4.5 时已补正。）
 
-> **三个版本的 versionCode 分别是 13 / 12 / 11，签名密钥相同，哪个都能直接覆盖装。**
-> 1.4.3 有「一挪动就跳回左上角」、1.4.4 有「拍照点了没反应」的问题，
-> **直接用 1.4.5 覆盖即可**，不用先卸载。
+> **1.5.0 / 1.4.5 / 1.4.4 的 versionCode 分别是 14 / 13 / 12，签名密钥相同，哪个都能直接覆盖装。**
+> 1.5.0 **只多了日文界面，转换算法一点没动**——两个包的条目数都是 781，
+> 差异集中在语言资源、`resources.arsc`、因资源 ID 重排而重编的布局 XML 和版本字段上；
+> 交付包里的 92 级字符表经 `verify_release_chartable.py` 直接从 dex 取出比对，仍然一致。
+> 所以 **1.4.5 用着没问题的话不升也行**，想用日文界面再升。
 
 **没做真机测试**——构建环境里没有可用的安卓设备或模拟器，所以功能逻辑是按代码走查确认的，没跑过实机。装到手机上如果发现哪里不对，把现象说出来我改。
 
@@ -674,6 +686,13 @@ app/src/main/java/com/dragonxash/asciiconverter/
 > **界面语言这块尤其需要真机确认**：系统 per-app language 的行为跟 ROM 强相关。
 > 1.1.1 已经改成不依赖系统的保底实现，但代码层面验证不了真机效果。
 > 装上后看一眼「关于」对话框里的 `设置的语言 / 界面实际语言` 两行是否一致。
+>
+> **1.5.0 新增日文后又多了一层待验证的东西**：日文资源齐、键集一致、`ja` 确实在包里，
+> 这些都能静态证明；但**日文界面一次都没在真机上看过**——排版会不会挤、
+> 日文文案（普遍比中文长 20~40%）在小屏上会不会换行难看，一条都没验过。
+> 建议重点看 `settings_blocks_only_desc`、`capture_empty_message`、
+> `batch_all_failed_message`、`about_message` 这几条长文案。
+> 而语言切换链路本身（`选日语 → 界面重建 → 是否真的变日文`）也仍然只在代码层面验证过。
 
 已知的平台差异（不是 bug）：
 

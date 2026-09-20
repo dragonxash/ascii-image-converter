@@ -386,16 +386,20 @@ NEW_STRINGS = [
     "capture_empty_use_pick",
 ]
 locale_names = {}
-for lang, rel in (("zh", "res/values/strings.xml"), ("en", "res/values-en/strings.xml")):
+for lang, rel in (
+    ("zh", "res/values/strings.xml"),
+    ("en", "res/values-en/strings.xml"),
+    ("ja", "res/values-ja/strings.xml"),
+):
     root = ET.parse(SRC_ROOT / rel).getroot()
     names = {node.get("name") for node in root.findall("string")}
     locale_names[lang] = names
     missing = [k for k in NEW_STRINGS if k not in names]
     check(f"{lang} 有新增字符串", not missing, "缺：" + "、".join(missing) if missing else "")
 check(
-    "中英字符串条目数一致",
-    len(locale_names["zh"]) == len(locale_names["en"]),
-    f"zh={len(locale_names['zh'])} en={len(locale_names['en'])}",
+    "各语言字符串条目数一致",
+    len({len(v) for v in locale_names.values()}) == 1,
+    "  ".join(f"{k}={len(v)}" for k, v in sorted(locale_names.items())),
 )
 
 # ── 汇总 ──────────────────────────────────────────────────────────────

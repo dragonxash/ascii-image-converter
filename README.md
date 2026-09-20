@@ -6,19 +6,19 @@
 
 `An Android app that converts photos to ASCII art and back. No network, no permissions, 1.6 MB.`
 
-[![Release](https://img.shields.io/badge/release-v1.4.5-blue)](../../releases/latest)
+[![Release](https://img.shields.io/badge/release-v1.5.0-blue)](../../releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![minSdk](https://img.shields.io/badge/minSdk-26-orange)]()
 
 | 项 | 值 |
 | --- | --- |
 | 包名 | `com.dragonxash.asciiconverter` |
-| 版本 | **1.4.5**（versionCode 13） |
+| 版本 | **1.5.0**（versionCode 14） |
 | 系统要求 | Android 8.0（API 26）及以上 |
 | 联网 | **完全不联网**，转换全程本地跑 |
 | 权限 | Android 10+ 上**零权限**（见下） |
-| 界面语言 | 简体中文 / English / 跟随系统 |
-| 体积 | release 包 1.59 MB |
+| 界面语言 | 简体中文 / English / **日本語** / 跟随系统 |
+| 体积 | release 包 1.60 MB |
 
 ---
 
@@ -26,17 +26,17 @@
 
 ### 装到手机
 
-到 [Releases](../../releases/latest) 下载 **`ascii-image-converter-1.4.5.apk`**（1,665,512 字节）直接装。
+到 [Releases](../../releases/latest) 下载 **`ascii-image-converter-1.5.0.apk`**（1,679,036 字节）直接装。
 
 ```
-sha256  30d2e2102688bb7f5a5d429d74b7ea91088264366b155d80fce63e80ddf7b0bf
+sha256  b772fe166a8700483abba678a9afc018ca6a213a8a1bf16c960ddea76e66959c
 ```
 
-仓库 `AsciiConverterApp/deliver/` 下也有一份同哈希的副本（文件名是中文的 `ASCII图片转换器-1.4.5.apk`，
+仓库 `AsciiConverterApp/deliver/` 下也有一份同哈希的副本（文件名是中文的 `ASCII图片转换器-1.5.0.apk`，
 与 Release 附件是同一个文件；Release 附件用 ASCII 文件名只是为了下载链接稳定）。
 
 > 提示「未知来源应用被禁止」时，去系统设置给对应的文件管理器/浏览器开一下
-> 「允许安装未知应用」。从 1.0.0 到 1.4.5 包名与签名密钥从未变过，**任何历史版本都能直接覆盖安装**。
+> 「允许安装未知应用」。从 1.0.0 到 1.5.0 包名与签名密钥从未变过，**任何历史版本都能直接覆盖安装**。
 
 ### 自己编译
 
@@ -58,13 +58,14 @@ cd AsciiConverterApp
 
 ### 跑校验脚本
 
-项目不带单元测试，改用 **19 个静态校验脚本**把算法常量、字符串格式、源码结构钉住：
+项目不带单元测试，改用 **21 个静态校验脚本**把算法常量、字符串格式、源码结构、界面语言配置钉住：
 
 ```bash
-# 根目录 10 个：字符表常量、占位符、源图链路、抖动、调色板、ANSI 往返、伪彩、量化、release 字符表、预览缩放
+# 根目录 11 个：字符表常量、占位符、源图链路、抖动、调色板、ANSI 往返、伪彩、量化、
+#              release 字符表、预览缩放、界面语言
 for f in verify_*.py; do python "$f" && echo "PASS $f"; done
 
-# deliver/ 下 9 个（同一批脚本，从交付目录再跑一遍，防止路径写死导致的假通过）
+# deliver/ 下 10 个（同一批脚本，从交付目录再跑一遍，防止路径写死导致的假通过）
 cd AsciiConverterApp/deliver
 for f in verify_*.py; do python "$f" && echo "PASS $f"; done
 ```
@@ -173,12 +174,14 @@ flowchart TD
 | --- | --- | --- |
 | 编译 | `assembleRelease` + `assembleDebug` | `BUILD SUCCESSFUL` |
 | 代码级编译警告 | `grep -c "^w: file://"` 构建日志 | **0 条** |
-| 静态校验脚本 | 根目录 10 个 + `deliver/` 9 个 | **19/19 PASS** |
+| 静态校验脚本 | 根目录 11 个 + `deliver/` 10 个 | **21/21 PASS** |
+| 界面语言四处配置 | 枚举 ↔ `res/values-*` ↔ `locales_config` ↔ `localeFilters` | 对齐；三语言键集与占位符零偏差 |
+| 日文资源是否真进包 | `aapt2 dump badging` / `dump resources` + 字节层复核 `resources.arsc` | `locales: '--_--' 'en' 'ja'`；`app_name` 有 `(ja) "ASCII 画像コンバーター"` |
 | 字符表常量 | 与上游 GLSL 逐字节比对，Python 复刻查表 | 一致（含「源码注释写 95 级、实测 92 项」的修正） |
 | 亮度往返 | 92 字符全量转换 | 最大偏差 1 级，平均 0.196 级 |
 | release 包内容 | ZIP 条目级比对（781 条 CRC/尺寸/时间戳） | 与交付包**全部一致** |
 | 签名 | `apksigner verify --print-certs` | v2 方案通过，RSA 2048，证书 SHA-256 `37c4513…` |
-| 体积 | 与上一版对比 | release 1.59 MB（原 App 43 MB） |
+| 体积 | 与上一版对比 | release 1.60 MB（原 App 43 MB；1.5.0 比 1.4.5 多 13.5 KB，正是日文资源） |
 
 ### 一个容易误判的点：重建包的哈希和交付包不一样
 
@@ -244,15 +247,15 @@ flowchart TD
 │   │   └── src/main/             ← 18 个 Kotlin + 33 个布局/资源
 │   ├── gradlew / gradle/wrapper/ ← Gradle 8.14.3 wrapper
 │   └── deliver/                  ← 交付目录
-│       ├── ASCII图片转换器-1.4.5.apk
+│       ├── ASCII图片转换器-1.5.0.apk
 │       ├── app-debug.apk
-│       ├── README-ASCII图片转换器.md   ← 53 KB 完整说明（功能/算法/FAQ）
-│       ├── 更新说明-1.0.2 ~ 1.4.5.md   ← 每版的根因 / 改法 / 验证
+│       ├── README-ASCII图片转换器.md   ← 完整说明（功能/算法/FAQ）
+│       ├── 更新说明-1.0.2 ~ 1.5.0.md   ← 每版的根因 / 改法 / 验证
 │       ├── 排错说明-如何取错误详情.md
 │       ├── pc98画风教程/               ← 4 组对比图 + 可运行 Python demo
-│       ├── verify_*.py                ← 9 个校验脚本
+│       ├── verify_*.py                ← 10 个校验脚本
 │       └── old/                       ← 历史版本 APK 归档
-├── verify_*.py                   ← 10 个校验脚本（含需 repo/ 与 lib-ref/ 的 verify_consts.py）
+├── verify_*.py                   ← 11 个校验脚本（含需 repo/ 与 lib-ref/ 的 verify_consts.py）
 ├── build-app.sh / build.sh       ← 原始一键构建脚本（依赖工作区里的 .build-env，不在仓库内）
 ├── gen_*.py / extract_table.py   ← 图标与常量生成脚本
 ├── repo/                         ← 参考实现 tAsciiArtPlayer 源码快照（Apache-2.0，见 NOTICE）
@@ -288,6 +291,27 @@ keyPassword=<你的口令>
 apksigner verify --print-certs 你的.apk
 ```
 
+### 加一门语言要动**四处**（少了任何一处都是静默失效）
+
+界面语言由 `core/AppLanguage.kt` 的枚举驱动，新增一门语言必须同时改这四处——
+**漏掉任何一处都不会报错**，只会"选了没反应"或"部分界面还是旧语言"：
+
+| # | 位置 | 漏掉会怎样 |
+| --- | --- | --- |
+| 1 | `core/AppLanguage.kt` 的枚举项 + `selectable` | 语言菜单里根本没有这一项 |
+| 2 | `res/values-<tag>/strings.xml` 补齐**全部**键 | 缺的键**静默回退成中文**（不报错），界面里会中英混杂 |
+| 3 | `res/xml/locales_config.xml` 加 `<locale>` | Android 13+ 系统设置里看不到这门语言 |
+| 4 | `app/build.gradle.kts` 的 `localeFilters` 加 `<tag>` | **资源被 aapt 直接裁掉** → 装机后"选了没反应、还是中文"，而本地编译毫无异常 |
+
+第 4 条最容易漏：`localeFilters` 是个**白名单**，加了资源目录却没加进白名单，
+编译器一个字都不会说。这四处的一致性由 `verify_locales.py` 钉住（20 项，含反向验证）。
+
+翻译时还要注意：`%1$s` / `%2$d` 这类**格式占位符必须原样保留**（少一个会在运行时闪退），
+字面量 `%` 必须写成 `%%`，换行用 `\n`。
+
+> 顺便说明：默认资源 `values/` 本身就是中文，所以**没有 `values-zh/` 目录**，
+> aapt2 报的语言列表是 `locales: '--_--' 'en' 'ja'`，其中 `--_--` 就是那份中文默认资源。
+
 ### 技术栈
 
 | 项 | 版本 |
@@ -306,6 +330,7 @@ apksigner verify --print-certs 你的.apk
 
 | 版本 | 主题 |
 | --- | --- |
+| **1.5.0** | **新增日文界面**（第 3 门语言）。只多了语言，**转换算法一点没动** |
 | **1.4.5** | 修「点拍照 → 选图 → 回来还是『还没有图片』」（三重静默失效叠加） |
 | **1.4.4** | 修「放大后一挪动就跳回左上角」（`OverScroller.fling()` 起始位置写成 `0, 0`） |
 | **1.4.3** | 预览区双指缩放（自写 `ZoomPaneLayout` 顶掉 `ScrollView`） |

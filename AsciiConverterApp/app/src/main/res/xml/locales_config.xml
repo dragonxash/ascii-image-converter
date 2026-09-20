@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 声明 App 支持的语言，Android 13+ 的 per-app language 需要它。 -->
+<!-- 声明 App 支持的语言，Android 13+ 的 per-app language 需要它。
+     新增语言时除了这里，还要同步 res/values-<tag>/ 与 build.gradle.kts 的 localeFilters，
+     四处缺一不可（一致性由 verify_locales.py 校验）。 -->
 <locale-config xmlns:android="http://schemas.android.com/apk/res/android">
     <locale android:name="zh" />
     <locale android:name="en" />
+    <locale android:name="ja" />
 </locale-config>

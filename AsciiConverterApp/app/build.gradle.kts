@@ -32,13 +32,15 @@ android {
         applicationId = "com.dragonxash.asciiconverter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.4.5"
+        versionCode = 14
+        versionName = "1.5.0"
     }
 
     androidResources {
-        // 只保留中英文资源，包更小
-        localeFilters += listOf("zh", "en")
+        // 只保留这几门语言的资源，包更小。
+        // ⚠️ 新增语言必须同步加到这里，否则资源会被裁掉——表现为「装了新语言但选它没反应」。
+        //    四处的对齐由根目录 verify_locales.py 校验。
+        localeFilters += listOf("zh", "en", "ja")
     }
 
     signingConfigs {

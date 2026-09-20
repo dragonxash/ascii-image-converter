@@ -328,21 +328,31 @@ check(
 )
 
 # ── 10. 中英字符串都在，占位符对得上 ───────────────────────────────────
+# ── 10. 各语言的字符串都在，占位符对得上 ───────────────────────────────
+# 语言列表与 verify_locales.py 保持一致；新增语言时两边都要加。
+LOCALES = (
+    ("zh", "res/values/strings.xml"),
+    ("en", "res/values-en/strings.xml"),
+    ("ja", "res/values-ja/strings.xml"),
+)
 names = {}
-for lang, rel in (("zh", "res/values/strings.xml"), ("en", "res/values-en/strings.xml")):
+for lang, rel in LOCALES:
     tree = ET.parse(SRC / rel).getroot()
     names[lang] = {node.get("name"): (node.text or "") for node in tree.findall("string")}
-check("中英都有 preview_zoom_reset", "preview_zoom_reset" in names["zh"] and "preview_zoom_reset" in names["en"])
 check(
-    "preview_zoom_reset 中英占位符一致",
-    "%1$s" in names["zh"].get("preview_zoom_reset", "")
-    and "%1$s" in names["en"].get("preview_zoom_reset", ""),
-    f"zh「{names['zh'].get('preview_zoom_reset', '')}」en「{names['en'].get('preview_zoom_reset', '')}」",
+    "各语言都有 preview_zoom_reset",
+    all("preview_zoom_reset" in names[lang] for lang, _ in LOCALES),
+    "缺：" + "、".join(lang for lang, _ in LOCALES if "preview_zoom_reset" not in names[lang]),
 )
 check(
-    "中英字符串条目数一致",
-    len(names["zh"]) == len(names["en"]),
-    f"zh={len(names['zh'])} en={len(names['en'])}",
+    "preview_zoom_reset 各语言占位符一致",
+    all("%1$s" in names[lang].get("preview_zoom_reset", "") for lang, _ in LOCALES),
+    "  ".join(f"{lang}「{names[lang].get('preview_zoom_reset', '')}」" for lang, _ in LOCALES),
+)
+check(
+    "各语言字符串条目数一致",
+    len({len(v) for v in names.values()}) == 1,
+    "  ".join(f"{k}={len(v)}" for k, v in sorted(names.items())),
 )
 
 # ── 汇总 ──────────────────────────────────────────────────────────────

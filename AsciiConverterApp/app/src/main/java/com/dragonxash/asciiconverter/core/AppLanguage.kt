@@ -12,8 +12,19 @@ import java.util.Locale
 /**
  * App 的界面语言。
  *
- * 资源本来是中英双份的，默认跟随系统——手机是英文系统，界面就全是英文。
+ * 资源有**简体中文 / English / 日本語**三份（`values/`、`values-en/`、`values-ja/`），
+ * 默认跟随系统——手机是英文系统，界面就全是英文。
  * 这里做成"可以手动指定"，并且**默认简体中文**，不管系统语言是什么。
+ *
+ * 加一门语言要同时动四处，缺一处就会出现"选了不生效"或"部分界面还是旧语言"：
+ *
+ * 1. 本枚举加一项（枚举 `tag` 必须与 [selectable] 一致接进菜单）；
+ * 2. `res/values-<tag>/strings.xml` 补齐**全部**键——漏掉的键会静默回退到默认中文；
+ * 3. `res/xml/locales_config.xml` 加 `<locale android:name="<tag>" />`；
+ * 4. `app/build.gradle.kts` 的 `localeFilters` 加 `<tag>`——**漏了这条资源会被裁掉**，
+ *    表现为"装到手机上选日语没反应、还是中文"。
+ *
+ * 这四处的一致性由 `verify_locales.py` 钉住，别只改代码不跑校验。
  *
  * 实现走**两条路**，缺一条都会出现"选了中文还是英文"：
  *
@@ -32,7 +43,8 @@ enum class AppLanguage(
 
     System("", R.string.lang_system),
     Chinese("zh", R.string.lang_chinese),
-    English("en", R.string.lang_english);
+    English("en", R.string.lang_english),
+    Japanese("ja", R.string.lang_japanese);
 
     companion object {
 
@@ -114,6 +126,6 @@ enum class AppLanguage(
         }
 
         /** 可以选择的语言列表。 */
-        val selectable: List<AppLanguage> = listOf(Chinese, English, System)
+        val selectable: List<AppLanguage> = listOf(Chinese, English, Japanese, System)
     }
 }

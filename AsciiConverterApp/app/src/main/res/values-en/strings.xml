@@ -145,6 +145,7 @@
     <string name="lang_system">Follow system</string>
     <string name="lang_chinese">简体中文</string>
     <string name="lang_english">English</string>
+    <string name="lang_japanese">日本語</string>
     <string name="lang_changed">Language switched (the screen will reload)</string>
     <string name="about_language">Language setting: %1$s\nLanguage actually in use: %2$s</string>
 

@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ASCII 画像コンバーター</string>
+
+    <!-- メイン画面 -->
+    <string name="main_empty_title">まだ画像がありません</string>
+    <string name="main_empty_desc">画像を選ぶと、すぐにアスキーアートになります</string>
+    <string name="main_pick">画像を選ぶ</string>
+    <string name="main_capture">撮影</string>
+    <string name="main_import">取り込み</string>
+    <string name="main_batch">一括</string>
+    <string name="main_save_png">画像を保存</string>
+    <string name="main_save_txt">テキストを保存</string>
+    <string name="main_copy">コピー</string>
+    <string name="main_share">共有</string>
+    <string name="main_settings">スタイル</string>
+    <string name="main_about">このアプリについて</string>
+    <string name="main_last_error">前回のエラー</string>
+    <string name="main_language">言語</string>
+    <string name="main_converting">変換中…</string>
+    <string name="main_info">%1$d×%2$d px · グリッド %3$d×%4$d · %5$d 文字</string>
+    <string name="main_info_imported">テキストから · グリッド %1$d×%2$d · %3$d 文字</string>
+    <string name="preview_zoom_reset">%1$s× リセット</string>
+
+    <!-- テキスト結果（書き出し） -->
+    <string name="text_output_title">テキスト結果</string>
+    <string name="text_output_info">グリッド %1$d×%2$d · %3$d 文字</string>
+    <string name="text_output_truncated">プレビューは省略しています。コピー／保存されるのは全文です</string>
+    <string name="text_save_txt">TXT として保存</string>
+    <string name="text_share">TXT を共有</string>
+    <string name="toast_text_copied">アスキーアートをクリップボードにコピーしました</string>
+    <string name="toast_text_saved">%1$s に保存しました</string>
+    <string name="toast_text_empty">テキスト結果がまだありません。先に画像を選んでください</string>
+
+    <!-- テキスト形式（文字のみ / 16 色 / フルカラー） -->
+    <string name="text_format_label">テキスト形式</string>
+    <string name="text_format_plain">文字のみ</string>
+    <string name="text_format_16">16 色</string>
+    <string name="text_format_true">フルカラー</string>
+    <string name="text_format_hint_plain">文字だけ。どこでも開けますが、色は失われます</string>
+    <string name="text_format_hint_16">画像から 16 色を選び、各チャンネルを 16 段階に圧縮します（PC-98 の 4096 色ルール）。サイズは小さめ</string>
+    <string name="text_format_hint_true">セルごとに実際の色を持ちます。取り込み直すと色をそのまま復元できます</string>
+    <string name="text_format_stats">%1$d 色使用 · 約 %2$s</string>
+    <string name="text_format_stats_plain">色なし · 約 %1$s</string>
+
+    <!-- テキストの取り込み（テキスト → 画像） -->
+    <string name="import_title">テキストを取り込む</string>
+    <string name="import_desc">アスキーアートを貼り付けるか .txt を開くと、そのまま画像に戻せます。文字表にない文字は近いものに置き換え、漢字などは塗りつぶしブロックとして扱います。\n\nANSI カラーコード付きのテキスト（本アプリの「16 色」「フルカラー」形式や、ターミナルからコピーした色付きテキスト）は自動で判別し、色をそのまま復元します。色のないプレーンな txt の場合、「カラー」スタイルで得られるのは輝度から合成した疑似カラーであり、元画像の色ではありません。</string>
+    <string name="import_hint">ここにアスキーアートを貼り付け…</string>
+    <string name="import_paste">クリップボードから貼り付け</string>
+    <string name="import_open_file">TXT ファイルを開く</string>
+    <string name="import_width">出力幅</string>
+    <string name="import_width_value">%1$d px</string>
+    <string name="import_info">グリッド %1$d×%2$d · %3$d 文字</string>
+    <string name="import_info_large">約 %1$d 文字 · テキストが長いため「画像を生成」を押したときに解析します</string>
+    <string name="import_clear">クリア</string>
+    <string name="import_render">画像を生成</string>
+    <string name="toast_clipboard_empty">クリップボードにテキストがありません</string>
+    <string name="toast_import_empty">先にアスキーアートを貼り付けるか、txt ファイルを開いてください</string>
+    <string name="toast_render_done">生成しました。メイン画面をご覧ください</string>
+    <string name="toast_txt_loaded">%1$s を読み込みました</string>
+    <string name="toast_ansi_detected">ANSI カラーを検出：%1$d 色</string>
+
+    <!-- スタイル設定 -->
+    <string name="settings_title">スタイル設定</string>
+    <string name="settings_preset">プリセット</string>
+    <string name="settings_char_width">文字幅</string>
+    <string name="settings_char_width_value">%1$d 列</string>
+    <string name="settings_color_fill">元画像のカラー塗り</string>
+    <string name="settings_color_fill_value">%1$d%%</string>
+    <string name="settings_char_reverse">文字を反転</string>
+    <string name="settings_char_reverse_desc">明暗を入れ替えます。明るい背景に合います</string>
+    <string name="settings_color_reverse">色を反転</string>
+    <string name="settings_color_reverse_desc">ベタ塗りから文字の形をくり抜きます</string>
+    <string name="settings_keep_color">元画像の色を保持</string>
+    <string name="settings_keep_color_desc">オフにすると強制的にモノクロになります</string>
+    <string name="settings_blocks_only">色ブロックのみ</string>
+    <string name="settings_blocks_only_desc">セル全体を元画像の色で塗り、文字は描きません。ブロックの大きさは「文字幅」で調整します</string>
+    <string name="settings_monospace">等幅フォント</string>
+    <string name="settings_monospace_desc">よりターミナルらしくなります</string>
+    <string name="settings_text_mode">テキストプレビュー</string>
+    <string name="settings_text_mode_desc">文字そのものを表示します。長押しでコピーできます</string>
+    <string name="settings_reset">初期設定に戻す</string>
+    <string name="settings_done">完了</string>
+
+    <!-- プリセット -->
+    <string name="preset_terminal">ターミナルグリーン</string>
+    <string name="preset_newspaper">新聞</string>
+    <string name="preset_colorful">カラー</string>
+    <string name="preset_minimal">ミニマル</string>
+    <string name="preset_deepsea">深海</string>
+    <string name="preset_custom">カスタム</string>
+
+    <!-- トースト -->
+    <string name="toast_saved">%1$s に保存しました</string>
+    <string name="toast_save_failed">保存に失敗しました：%1$s</string>
+    <string name="toast_copied">アスキーアートをクリップボードにコピーしました</string>
+    <string name="toast_copy_failed">コピーに失敗しました：%1$s</string>
+    <string name="toast_convert_failed">変換に失敗しました：%1$s</string>
+    <string name="toast_no_image">先に画像を選んでください</string>
+    <string name="toast_no_result">変換結果がまだありません。しばらくお待ちください</string>
+    <string name="toast_permission_denied">ファイルの保存にはストレージの権限が必要です</string>
+    <string name="toast_capture_failed">カメラを開けませんでした：%1$s</string>
+    <string name="capture_empty_title">カメラから写真が返りませんでした</string>
+    <string name="capture_empty_message">カメラ（または撮影を引き継いだアプリ）が、こちらが指定したファイルに写真を書き込みませんでした。そのため変換できる画像がありません。\n\n「画像を選ぶ」に切り替えてください。ギャラリーからでもファイルからでも選べます。</string>
+    <string name="capture_empty_use_pick">「画像を選ぶ」を使う</string>
+    <string name="toast_pick_failed">ギャラリーを開けませんでした：%1$s</string>
+
+    <!-- 一括変換 -->
+    <string name="batch_title">一括変換</string>
+    <string name="batch_pick">選択</string>
+    <string name="batch_pick_title">画像の選択元</string>
+    <string name="batch_pick_gallery">システムギャラリー（複数選択可）</string>
+    <string name="batch_pick_file">ファイルブラウザ（複数選択可）</string>
+    <string name="batch_pick_too_many">一度に最大 %1$d 枚までです。残りは無視しました</string>
+    <string name="batch_all_failed_title">この画像はどれも読み込めませんでした</string>
+    <string name="batch_all_failed_message">多くの場合、「システムギャラリー」の経路がこの端末で機能していないだけで、画像そのものの問題ではありません。\n下のボタンを押して「ファイルブラウザ」で選び直すと、たいてい解決します。</string>
+    <string name="batch_convert_all">すべて変換</string>
+    <string name="batch_save_all">すべて保存</string>
+    <string name="batch_clear">クリア</string>
+    <string name="batch_empty">画像が未選択です。右上の「選択」から、ギャラリーでもファイルブラウザでも開けます。使えるほうをお使いください。</string>
+    <string name="batch_selected_count">%1$d 枚を選択中</string>
+    <string name="batch_item_pending">待機中</string>
+    <string name="batch_item_converting">変換中…</string>
+    <string name="batch_item_done">%1$d 文字</string>
+    <string name="batch_item_failed">失敗</string>
+    <string name="batch_progress">変換中 %1$d/%2$d</string>
+    <string name="batch_saved_count">%1$d 枚をギャラリーに保存しました</string>
+    <string name="batch_nothing_to_convert">先に画像を選んでください</string>
+
+    <!-- このアプリについて -->
+    <string name="about_title">このアプリについて</string>
+    <string name="about_message">ASCII 画像コンバーター v%1$s\n\n写真をアスキーアートに変換します。画像を文字グリッドに縮小し、各セルを BT.601 の輝度で 92 段階の文字表に割り当てて、1 セルずつ描画します。カラー塗り、文字の反転、色の反転を調整できます。\n\n結果は PNG 画像や TXT テキストとして保存でき、コピーや共有もできます。\n\nすべて端末内で処理します。通信も、画像のアップロードも行いません。</string>
+    <string name="about_ok">了解</string>
+
+    <!-- エラー診断 -->
+    <string name="error_title">%1$s でエラー</string>
+    <string name="error_last_title">前回のエラー</string>
+    <string name="error_copy">詳細をコピー</string>
+    <string name="error_clear">記録を消去</string>
+    <string name="error_cleared">エラー記録を消去しました</string>
+    <string name="error_none">記録されたエラーはありません</string>
+    <string name="toast_error_copied">エラーの詳細をコピーしました。開発者にお送りください</string>
+
+    <!-- 言語 -->
+    <string name="lang_title">表示言語</string>
+    <string name="lang_system">システムに従う</string>
+    <string name="lang_chinese">简体中文</string>
+    <string name="lang_english">English</string>
+    <string name="lang_japanese">日本語</string>
+    <string name="lang_changed">言語を切り替えました（画面が一度読み込み直されます）</string>
+    <string name="about_language">設定した言語：%1$s\n実際の表示言語：%2$s</string>
+
+    <!-- 画像の選択元 -->
+    <string name="source_title">画像の選択元</string>
+    <string name="source_gallery">システムギャラリー</string>
+    <string name="source_gallery_desc">フォトピッカー。権限は不要で、大きなプレビューが見られます</string>
+    <string name="source_file">ファイルピッカー</string>
+    <string name="source_file_desc">フォルダ単位で閲覧でき、互換性が高いです。画像が開けないときに</string>
+    <string name="source_read_failed">この画像は読み込めません</string>
+    <string name="source_retry_with_file">ファイルブラウザで選び直す</string>
+    <string name="toast_source_failed">選択画面を開けませんでした：%1$s</string>
+
+    <string name="action_close">閉じる</string>
+    <string name="action_cancel">キャンセル</string>
+    <!-- PC-98 風（1.4.0） -->
+    <string name="preset_pc98">PC-98</string>
+    <string name="dither_none">ディザなし</string>
+    <string name="dither_ordered">網点ディザ</string>
+    <string name="dither_diffuse">誤差拡散</string>
+    <string name="settings_pc98">PC-98 風</string>
+    <string name="settings_pc98_desc">16 色に圧縮します（4096 色パレット、各チャンネル 4 bit）</string>
+    <string name="settings_dither">中間色の処理</string>
+    <string name="settings_dither_desc">16 色では出せない色を、ドットの組み合わせで表現します</string>
+    <string name="settings_palette">パレット</string>
+    <string name="settings_palette_desc">16 色を自分で選べます。選ばなければ画像から自動で取得します</string>
+    <string name="palette_title">PC-98 パレット</string>
+    <string name="palette_auto">自動取得</string>
+    <string name="palette_summary_auto">自動</string>
+    <string name="palette_summary_custom">カスタム %1$d 色</string>
+    <string name="palette_hint">全 %1$d 色 · 各チャンネル 16 段階（0 / 17 / 34 … 255）</string>
+    <string name="palette_builtin">既成のものを適用</string>
+    <string name="palette_edit_hint">上の色をタップして選び、下の 3 本のスライダーで調整します</string>
+    <string name="palette_channel">%1$s %2$d 段階（%3$d）</string>
+    <string name="input_title_char_width">文字幅</string>
+    <string name="input_title_color_fill">元画像のカラー塗り</string>
+    <string name="input_hint_char_width">%1$d ～ %2$d 列</string>
+    <string name="input_hint_color_fill">0 ～ 100（パーセント）</string>
+    <string name="input_out_of_range">%1$d ～ %2$d の整数を入力してください</string>
+    <string name="input_hint_tap">数字をタップすると直接入力できます</string>
+</resources>
