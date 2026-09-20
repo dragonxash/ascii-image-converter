@@ -26,8 +26,14 @@
 
 ### 装到手机
 
-到 [Releases](../../releases/latest) 下载 `ASCII图片转换器-1.4.5.apk` 直接装。
-仓库 `AsciiConverterApp/deliver/` 下也有一份同哈希的副本。
+到 [Releases](../../releases/latest) 下载 **`ascii-image-converter-1.4.5.apk`**（1,665,512 字节）直接装。
+
+```
+sha256  30d2e2102688bb7f5a5d429d74b7ea91088264366b155d80fce63e80ddf7b0bf
+```
+
+仓库 `AsciiConverterApp/deliver/` 下也有一份同哈希的副本（文件名是中文的 `ASCII图片转换器-1.4.5.apk`，
+与 Release 附件是同一个文件；Release 附件用 ASCII 文件名只是为了下载链接稳定）。
 
 > 提示「未知来源应用被禁止」时，去系统设置给对应的文件管理器/浏览器开一下
 > 「允许安装未知应用」。从 1.0.0 到 1.4.5 包名与签名密钥从未变过，**任何历史版本都能直接覆盖安装**。
