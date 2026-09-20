@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ASCII 图片转换器</string>
+
+    <!-- 主界面 -->
+    <string name="main_empty_title">还没有图片</string>
+    <string name="main_empty_desc">选一张图，立刻变成字符画</string>
+    <string name="main_pick">选图</string>
+    <string name="main_capture">拍照</string>
+    <string name="main_import">导入</string>
+    <string name="main_batch">批量</string>
+    <string name="main_save_png">存图</string>
+    <string name="main_save_txt">存文本</string>
+    <string name="main_copy">复制</string>
+    <string name="main_share">分享</string>
+    <string name="main_settings">样式</string>
+    <string name="main_about">关于</string>
+    <string name="main_last_error">查看上次错误</string>
+    <string name="main_language">语言</string>
+    <string name="main_converting">正在转换…</string>
+    <string name="main_info">%1$d×%2$d px · 网格 %3$d×%4$d · %5$d 字符</string>
+    <string name="main_info_imported">来自文字 · 网格 %1$d×%2$d · %3$d 字符</string>
+    <string name="preview_zoom_reset">%1$s× 复位</string>
+
+    <!-- 文字结果（导出） -->
+    <string name="text_output_title">文字结果</string>
+    <string name="text_output_info">网格 %1$d×%2$d · %3$d 字符</string>
+    <string name="text_output_truncated">预览已截断，复制/保存的是完整文本</string>
+    <string name="text_save_txt">存为 TXT</string>
+    <string name="text_share">分享 TXT</string>
+    <string name="toast_text_copied">字符画已复制到剪贴板</string>
+    <string name="toast_text_saved">已保存到 %1$s</string>
+    <string name="toast_text_empty">还没有文字结果，先选一张图</string>
+
+    <!-- 文本格式（纯字符 / 16 色 / 真彩） -->
+    <string name="text_format_label">文本格式</string>
+    <string name="text_format_plain">纯字符</string>
+    <string name="text_format_16">16 色</string>
+    <string name="text_format_true">真彩</string>
+    <string name="text_format_hint_plain">只有字符，任何地方都能打开，但颜色丢失</string>
+    <string name="text_format_hint_16">从画面里挑 16 色，每通道压到 16 级（PC-98 的 4096 色规则），体积小</string>
+    <string name="text_format_hint_true">每格一个真实颜色，导入能无损还原</string>
+    <string name="text_format_stats">用了 %1$d 色 · 约 %2$s</string>
+    <string name="text_format_stats_plain">无颜色 · 约 %1$s</string>
+
+    <!-- 导入文字（文字 → 图片） -->
+    <string name="import_title">导入文字</string>
+    <string name="import_desc">把字符画粘进来，或打开一个 .txt，直接生成图片。字符表以外的字符会就近替换，中文等按实心块处理。\n\n带 ANSI 颜色码的文本（本 App 的「16 色」「真彩」格式，或终端里拷出来的彩色文字）会自动识别，原样还原颜色。纯字符的 txt 里没有颜色，这时用「彩色」风格得到的是按亮度合成的伪彩色，不是原图颜色。</string>
+    <string name="import_hint">在这里粘贴字符画…</string>
+    <string name="import_paste">从剪贴板粘贴</string>
+    <string name="import_open_file">打开 TXT 文件</string>
+    <string name="import_width">输出宽度</string>
+    <string name="import_width_value">%1$d px</string>
+    <string name="import_info">网格 %1$d×%2$d · %3$d 字符</string>
+    <string name="import_info_large">约 %1$d 字符 · 文本较长，点「生成图片」时再解析</string>
+    <string name="import_clear">清空</string>
+    <string name="import_render">生成图片</string>
+    <string name="toast_clipboard_empty">剪贴板里没有文本</string>
+    <string name="toast_import_empty">先粘一段字符画，或打开一个 txt 文件</string>
+    <string name="toast_render_done">已生成，见主界面</string>
+    <string name="toast_txt_loaded">已载入 %1$s</string>
+    <string name="toast_ansi_detected">识别到 ANSI 颜色：%1$d 色</string>
+
+    <!-- 样式设置 -->
+    <string name="settings_title">样式设置</string>
+    <string name="settings_preset">预设风格</string>
+    <string name="settings_char_width">字符宽度</string>
+    <string name="settings_char_width_value">%1$d 列</string>
+    <string name="settings_color_fill">原图彩色填充</string>
+    <string name="settings_color_fill_value">%1$d%%</string>
+    <string name="settings_char_reverse">字符反转</string>
+    <string name="settings_char_reverse_desc">亮暗对调，适合浅色底</string>
+    <string name="settings_color_reverse">颜色反转</string>
+    <string name="settings_color_reverse_desc">把字符形状从色块里抠出来</string>
+    <string name="settings_keep_color">保留原图颜色</string>
+    <string name="settings_keep_color_desc">关掉即强制单色</string>
+    <string name="settings_blocks_only">只保留色块</string>
+    <string name="settings_blocks_only_desc">整格填原图颜色，不画字符。块大小用「字符宽度」调</string>
+    <string name="settings_monospace">等宽字体</string>
+    <string name="settings_monospace_desc">更像终端</string>
+    <string name="settings_text_mode">文本预览</string>
+    <string name="settings_text_mode_desc">直接看字符本身，可长按复制</string>
+    <string name="settings_reset">恢复默认</string>
+    <string name="settings_done">完成</string>
+
+    <!-- 预设风格 -->
+    <string name="preset_terminal">终端绿</string>
+    <string name="preset_newspaper">报纸</string>
+    <string name="preset_colorful">彩色</string>
+    <string name="preset_minimal">极简</string>
+    <string name="preset_deepsea">深海</string>
+    <string name="preset_custom">自定义</string>
+
+    <!-- 提示 -->
+    <string name="toast_saved">已保存到 %1$s</string>
+    <string name="toast_save_failed">保存失败：%1$s</string>
+    <string name="toast_copied">字符画已复制到剪贴板</string>
+    <string name="toast_copy_failed">复制失败：%1$s</string>
+    <string name="toast_convert_failed">转换失败：%1$s</string>
+    <string name="toast_no_image">请先选一张图片</string>
+    <string name="toast_no_result">还没有转换结果，请稍等</string>
+    <string name="toast_permission_denied">需要存储权限才能保存文件</string>
+    <string name="toast_capture_failed">打开相机失败：%1$s</string>
+    <string name="capture_empty_title">相机没有返回照片</string>
+    <string name="capture_empty_message">相机（或接管拍照的那个应用）没有把照片写进我们指定的文件，所以没有图可以转换。\n\n现在可以改用「选图」——从相册或文件里挑一张，两条通道都行。</string>
+    <string name="capture_empty_use_pick">改用「选图」</string>
+    <string name="toast_pick_failed">打开相册失败：%1$s</string>
+
+    <!-- 批量转换 -->
+    <string name="batch_title">批量转换</string>
+    <string name="batch_pick">选图</string>
+    <string name="batch_pick_title">从哪里选图</string>
+    <string name="batch_pick_gallery">系统相册（可多选）</string>
+    <string name="batch_pick_file">文件浏览器（可多选）</string>
+    <string name="batch_pick_too_many">一次最多 %1$d 张，多出来的已忽略</string>
+    <string name="batch_all_failed_title">这批图都读不出来</string>
+    <string name="batch_all_failed_message">多半是「系统相册」这条通道在这台机器上不好使，跟图片本身没关系。\n点下面的按钮，换成「文件浏览器」重选一遍通常就好了。</string>
+    <string name="batch_convert_all">全部转换</string>
+    <string name="batch_save_all">全部保存</string>
+    <string name="batch_clear">清空</string>
+    <string name="batch_empty">还没选图片。点右上角「选图」，相册和文件浏览器两条路都能进，哪条通用哪条。</string>
+    <string name="batch_selected_count">已选 %1$d 张</string>
+    <string name="batch_item_pending">待转换</string>
+    <string name="batch_item_converting">转换中…</string>
+    <string name="batch_item_done">%1$d 字符</string>
+    <string name="batch_item_failed">失败</string>
+    <string name="batch_progress">正在转换 %1$d/%2$d</string>
+    <string name="batch_saved_count">已保存 %1$d 张到相册</string>
+    <string name="batch_nothing_to_convert">请先选择图片</string>
+
+    <!-- 关于 -->
+    <string name="about_title">关于</string>
+    <string name="about_message">ASCII 图片转换器 v%1$s\n\n把照片转成字符画：图片先缩成字符网格，每格按 BT.601 亮度查 92 级字符表，再逐格绘制。颜色填充、字符反转、颜色反转都可以调。\n\n结果能存成 PNG 图片或 TXT 文本，也能直接复制、分享。\n\n纯本地处理，不联网、不上传任何图片。</string>
+    <string name="about_ok">知道了</string>
+
+    <!-- 错误诊断 -->
+    <string name="error_title">%1$s 出错</string>
+    <string name="error_last_title">上次的错误</string>
+    <string name="error_copy">复制详情</string>
+    <string name="error_clear">清除记录</string>
+    <string name="error_cleared">错误记录已清除</string>
+    <string name="error_none">没有记录到错误</string>
+    <string name="toast_error_copied">错误详情已复制，可以发给开发者</string>
+
+    <!-- 语言 -->
+    <string name="lang_title">界面语言</string>
+    <string name="lang_system">跟随系统</string>
+    <string name="lang_chinese">简体中文</string>
+    <string name="lang_english">English</string>
+    <string name="lang_changed">语言已切换（界面会重建一次）</string>
+    <string name="about_language">设置的语言：%1$s\n界面实际语言：%2$s</string>
+
+    <!-- 选图方式 -->
+    <string name="source_title">从哪里选图</string>
+    <string name="source_gallery">系统相册</string>
+    <string name="source_gallery_desc">照片选择器，无需权限，可看大图</string>
+    <string name="source_file">文件选择器</string>
+    <string name="source_file_desc">按文件夹浏览，兼容性更好，找不到图时用它</string>
+    <string name="source_read_failed">这张图读不出来</string>
+    <string name="source_retry_with_file">换文件浏览器重选</string>
+    <string name="toast_source_failed">打开选图界面失败：%1$s</string>
+
+    <string name="action_close">关闭</string>
+    <string name="action_cancel">取消</string>
+    <!-- PC-98 画风（1.4.0） -->
+    <string name="preset_pc98">PC-98</string>
+    <string name="dither_none">不抖动</string>
+    <string name="dither_ordered">网点抖动</string>
+    <string name="dither_diffuse">误差扩散</string>
+    <string name="settings_pc98">PC-98 画风</string>
+    <string name="settings_pc98_desc">压到 16 色（4096 色板，每通道 4 bit）</string>
+    <string name="settings_dither">中间色处理</string>
+    <string name="settings_dither_desc">16 色画不出的颜色，用点阵组合糊出来</string>
+    <string name="settings_palette">调色板</string>
+    <string name="settings_palette_desc">16 色能自己挑，不挑就按画面自动取</string>
+    <string name="palette_title">PC-98 调色板</string>
+    <string name="palette_auto">自动取色</string>
+    <string name="palette_summary_auto">自动</string>
+    <string name="palette_summary_custom">自定义 %1$d 色</string>
+    <string name="palette_hint">共 %1$d 色 · 每通道 16 级（0 / 17 / 34 … 255）</string>
+    <string name="palette_builtin">套用现成的</string>
+    <string name="palette_edit_hint">点上面的色块选中，再用下面三根滑杆调</string>
+    <string name="palette_channel">%1$s %2$d 级（%3$d）</string>
+    <string name="input_title_char_width">字符宽度</string>
+    <string name="input_title_color_fill">原图彩色填充</string>
+    <string name="input_hint_char_width">%1$d ~ %2$d 列</string>
+    <string name="input_hint_color_fill">0 ~ 100（百分比）</string>
+    <string name="input_out_of_range">请输入 %1$d ~ %2$d 之间的整数</string>
+    <string name="input_hint_tap">点数字可以直接输入</string>
+</resources>

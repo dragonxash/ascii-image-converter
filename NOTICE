@@ -1,0 +1,62 @@
+# 第三方代码与署名 / Third-Party Notices
+
+本仓库包含第三方开源代码。为遵守 Apache License 2.0 第 4 条
+（保留许可证、署名与修改声明），特此列出如下。
+
+---
+
+## 1. tAsciiArtPlayer
+
+- **来源**：https://github.com/Tans5/tAsciiArtPlayer
+- **许可**：Apache License 2.0
+- **版权**：`Copyright [Tans5]`（见上游 `LICENSE` 文件）
+- **位置**：本仓库 `repo/` 目录（上游提交 `fb2403a` 的源码快照，**未做修改**；
+  原样保留上游 `LICENSE`，且在 `.gitignore` 中排除了上游的构建产物与机器配置）
+- **本项目的使用方式**：本 App 的字符画核心算法——**BT.601 亮度公式 + 92 级字符表**
+  与缩放时的高度比补偿——移植自该项目的 `AsciiArtImageFilter`（GLSL 实现
+  `luma_vert/luma_frag/char_vert/char_frag`）。字符表与逐格映射逻辑**逐字节对齐，算法未改动**，
+  只是从 GLSL 移植到 Kotlin 并去掉了视频链路。
+
+> 上游仓库的 `gradlew`、`gradle/wrapper/`、`screenshots/` 等亦一并保留，
+> 仅作为参考；**上游更新请以原仓库为准**，本目录不跟随上游。
+
+## 2. tMediaPlayer / tuiutils
+
+- **来源**：https://github.com/Tans5/tMediaPlayer （及 tAsciiArtPlayer 内置的 `tuiutils`）
+- **许可**：Apache License 2.0
+- **版权**：`Copyright [Tans5]`
+- **位置**：本仓库 `lib-ref/` 目录
+- **说明**：`lib-ref/` 中的文件是从上述项目里**抽取出来的参考片段**
+  （`AsciiArtImageFilter.kt`、GLSL 着色器、`ascii_table.json`、`tuiutils` 的若干 Kotlin 文件）。
+  它们的用途单一：供本项目的静态校验脚本（`verify_consts.py` 等）**比对算法常量与查表逻辑**是否与原实现一致。
+  同样遵循 Apache License 2.0，`lib-ref/LICENSE` 保留了上游许可证全文。
+
+## 3. 对上游仓库所做的修改（image-ascii-support.patch）
+
+- **位置**：`deliver/image-ascii-support.patch`
+- **说明**：这是本项目在动手做独立 App **之前**，给上游 tAsciiArtPlayer 增加
+  「图片转 ASCII」功能的补丁（23 个文件 / +2103 行）。
+  按 Apache License 2.0 第 4(b) 条，**特此声明该补丁为对原作品的修改内容**，
+  并且它不是上游官方版本。
+- 同目录的 `README-图片转ASCII说明.md`、`algorithm-demo.txt`、`demo_converter.py`
+  为随该补丁一并产出的说明与离线演示脚本。
+
+---
+
+## 本项目原创部分
+
+除上述第三方内容外，本仓库其余部分——包括：
+
+- `AsciiConverterApp/`（App 全部源码、布局、资源、构建配置）
+- 根目录的 `verify_*.py`（19 个静态校验脚本）、`build-app.sh` 等构建脚本、
+  `gen_*.py` / `extract_table.py` 生成脚本
+- `AsciiConverterApp/deliver/` 下的全部文档与产物
+
+均由 **dragonxash** 原创，以 **MIT License** 发布（见根目录 `LICENSE`）。
+
+---
+
+## 商标与免责
+
+- 本项目与 Tans5 及其项目无隶属或背书关系，仅按开源许可证使用其代码。
+- 全部代码按「原样」提供，不附带任何担保。

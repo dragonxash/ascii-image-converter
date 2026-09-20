@@ -1,0 +1,70 @@
+[versions]
+agp = "8.11.1"
+kotlin = "2.2.0"
+googleKsp = "2.2.0-2.0.2"
+coreKtx = "1.17.0"
+junit = "4.13.2"
+junitVersion = "1.3.0"
+espressoCore = "3.7.0"
+appcompat = "1.7.1"
+material = "1.13.0"
+activity = "1.11.0"
+room = "2.8.0"
+datastore = "1.2.0-alpha02"
+constraintlayout = "2.2.1"
+corouines = "1.10.2"
+tuiutils = "1.1.2"
+glide = "5.0.5"
+swiperefreshlayout = "1.1.0"
+tmediaplayer = "1.6.2"
+androidx-media = "1.7.1"
+androidx-media3 = "1.8.0"
+androidx-lifecycle = "2.9.3"
+okhttp = "5.1.0"
+tapm = "1.0.3"
+tlog = "1.0.1"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-codegen = { group= "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-datastore-sp = { group="androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "corouines" }
+coroutines-core-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core-jvm", version.ref = "corouines" }
+coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "corouines" }
+tuiutils = { group = "io.github.tans5", name = "tuiutils", version.ref = "tuiutils"}
+glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide"}
+glide-okhttp = { group = "com.github.bumptech.glide", name = "okhttp4-integration", version.ref = "glide"}
+glide-codegen-kapt = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
+glide-codegen-ksp = { group = "com.github.bumptech.glide", name = "ksp", version.ref = "glide" }
+androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name="swiperefreshlayout",  version.ref="swiperefreshlayout"}
+tmediaplayer = { group = "io.github.tans5", name = "tmediaplayer", version.ref = "tmediaplayer" }
+androidx-media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "androidx-media3" }
+androidx-media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "androidx-media3" }
+androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "androidx-media3" }
+androidx-media = { group = "androidx.media", name = "media", version.ref = "androidx-media" }
+androidx-lifecycle-progress = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "androidx-lifecycle" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+tapm-core = { group = "io.github.tans5", name= "tapm-core", version.ref = "tapm" }
+tapm-autoinit = { group = "io.github.tans5", name= "tapm-autoinit", version.ref = "tapm" }
+tapm-log = { group = "io.github.tans5", name= "tapm-log", version.ref = "tapm" }
+tapm-breakpad = { group = "io.github.tans5", name= "tapm-breakpad", version.ref = "tapm" }
+tlog = { group = "io.github.tans5", name = "tlog", version.ref = "tlog" }
+
+
+[plugins]
+androidApplication = { id = "com.android.application", version.ref = "agp" }
+androidLibrary = { id = "com.android.library", version.ref = "agp" }
+jetbrainsKotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+jetbrainsKotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+googleKsp = { id = "com.google.devtools.ksp", version.ref = "googleKsp" }
+room = { id = "androidx.room", version.ref = "room" }
+

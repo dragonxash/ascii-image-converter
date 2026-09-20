@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_deep"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/tool_bar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/bg_deep"
+        app:menu="@menu/main_menu"
+        app:title="@string/app_name"
+        app:titleTextColor="@color/text_primary" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- 预览区：图片模式和文本模式共用一块地方。
+             两种模式都能双指放大、单指拖动，放大后右下角会出现复位角标。 -->
+        <com.dragonxash.asciiconverter.ZoomPaneLayout
+            android:id="@+id/preview_pane"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <!-- layout_gravity 必须写死 left（不能用 start）：FrameLayout 默认是 START，
+                 在阿拉伯语这类 RTL 语言下会把内容摆到右边去，缩放平移的坐标就全错了。 -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|left"
+                android:background="@color/bg_surface">
+
+                <ImageView
+                    android:id="@+id/ascii_art_iv"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:contentDescription="@string/main_empty_title"
+                    tools:src="@drawable/ic_action_pick" />
+
+                <TextView
+                    android:id="@+id/ascii_text_tv"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="4dp"
+                    android:textColor="@color/text_primary"
+                    android:textIsSelectable="true"
+                    android:textSize="5sp"
+                    android:typeface="monospace"
+                    android:visibility="gone"
+                    tools:text="@string/main_empty_desc"
+                    tools:visibility="gone" />
+
+            </FrameLayout>
+
+        </com.dragonxash.asciiconverter.ZoomPaneLayout>
+
+        <!-- 还没有图片时的引导 -->
+        <LinearLayout
+            android:id="@+id/empty_group"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingStart="32dp"
+            android:paddingEnd="32dp">
+
+            <ImageView
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:alpha="0.4"
+                android:contentDescription="@string/main_empty_title"
+                android:src="@drawable/ic_action_pick"
+                app:tint="@color/accent" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/main_empty_title"
+                android:textColor="@color/text_primary"
+                android:textSize="17sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:text="@string/main_empty_desc"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
+
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/loading_pb"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:indeterminateTint="@color/accent"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <TextView
+            android:id="@+id/converting_tv"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="52dp"
+            android:text="@string/main_converting"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <!-- 放大之后才出现：显示出当前倍数，点一下回到 1× -->
+        <TextView
+            android:id="@+id/zoom_reset_tv"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/bg_zoom_chip"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="10dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="5dp"
+            android:textColor="@color/text_primary"
+            android:textSize="11sp"
+            android:visibility="gone"
+            tools:text="1.8× 复位"
+            tools:visibility="visible" />
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/info_tv"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_surface"
+        android:paddingStart="14dp"
+        android:paddingTop="5dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="5dp"
+        android:textColor="@color/accent"
+        android:textSize="11sp"
+        android:visibility="gone"
+        tools:text="1080×1920 px · 网格 120×213 · 25560 字符"
+        tools:visibility="visible" />
+
+    <LinearLayout
+        android:id="@+id/bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_surface"
+        android:orientation="horizontal"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/pick_btn"
+            style="@style/Widget.AsciiConverter.BottomAction"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/main_pick"
+            app:icon="@drawable/ic_action_pick"
+            app:iconGravity="textTop"
+            app:iconSize="22dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/capture_btn"
+            style="@style/Widget.AsciiConverter.BottomAction"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/main_capture"
+            app:icon="@drawable/ic_action_camera"
+            app:iconGravity="textTop"
+            app:iconSize="22dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/import_btn"
+            style="@style/Widget.AsciiConverter.BottomAction"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/main_import"
+            app:icon="@drawable/ic_action_import"
+            app:iconGravity="textTop"
+            app:iconSize="22dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/batch_btn"
+            style="@style/Widget.AsciiConverter.BottomAction"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/main_batch"
+            app:icon="@drawable/ic_action_batch"
+            app:iconGravity="textTop"
+            app:iconSize="22dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/save_btn"
+            style="@style/Widget.AsciiConverter.BottomAction"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/main_save_png"
+            app:icon="@drawable/ic_action_save"
+            app:iconGravity="textTop"
+            app:iconSize="22dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/share_btn"
+            style="@style/Widget.AsciiConverter.BottomAction"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/main_share"
+            app:icon="@drawable/ic_action_share"
+            app:iconGravity="textTop"
+            app:iconSize="22dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

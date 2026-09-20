@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 拍照输出：用 cache 目录，分享/读取都不需要额外权限 -->
+    <cache-path
+        name="capture"
+        path="capture/" />
+    <!-- 导出的 ASCII 文本走 FileProvider 分享 -->
+    <cache-path
+        name="export"
+        path="export/" />
+</paths>

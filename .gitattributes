@@ -1,0 +1,19 @@
+# 统一换行符，避免 CRLF 污染（中文文案容易踩）
+* text=auto eol=lf
+
+# 脚本与批处理各自的语言习惯
+*.sh   text eol=lf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# 二进制文件一律不做任何转换
+*.apk   binary
+*.jar   binary
+*.jks   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.ttf   binary
+*.otf   binary
+*.zip   binary

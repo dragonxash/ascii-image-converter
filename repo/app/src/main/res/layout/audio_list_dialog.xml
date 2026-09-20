@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <com.google.android.material.bottomsheet.BottomSheetDragHandleView
+        android:id="@+id/handle_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <TextView
+        android:id="@+id/list_title_tv"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="2dp"
+        android:layout_marginStart="12dp"
+        android:layout_width="0dp"
+        android:textColor="@color/gray_900"
+        android:textSize="18sp"
+        android:maxLines="2"
+        android:ellipsize="end"
+        app:layout_constraintEnd_toStartOf="@id/song_count_iv"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/handle_view"
+        tools:text="List title" />
+
+    <ImageView
+        android:id="@+id/song_count_iv"
+        android:layout_width="15dp"
+        android:layout_height="15dp"
+        android:src="@drawable/icon_audio"
+        android:layout_marginTop="1dp"
+        app:layout_constraintEnd_toStartOf="@id/song_count_iv"
+        app:layout_constraintTop_toTopOf="@id/song_count_tv"
+        app:layout_constraintBottom_toBottomOf="@id/song_count_tv"/>
+
+    <TextView
+        android:id="@+id/song_count_tv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="12dp"
+        android:textColor="@color/cyan_400"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:layout_goneMarginEnd="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBaseline_toBaselineOf="@id/list_title_tv"
+        app:layout_constraintStart_toEndOf="@id/song_count_iv"
+        tools:text="20" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/audio_list_rv"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="10dp"
+        android:scrollbars="vertical"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/list_title_tv"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:listitem="@layout/audio_item_layout"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

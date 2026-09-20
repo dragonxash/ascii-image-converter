@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 预览区右下角的「复位」角标背景。
+     半透明 + 一圈浅描边：预览背景色是用户自己调的（可能纯黑也可能纯白），
+     只有描边才能保证这个角标在任何底色上都看得见。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <solid android:color="#D91D2735" />
+    <corners android:radius="14dp" />
+    <stroke
+        android:width="1dp"
+        android:color="#4DFFFFFF" />
+
+</shape>

@@ -1,0 +1,165 @@
+<resources>
+    <string name="app_name">tAsciiArtPlayer</string>
+
+    <!--region AppSettingsDialog -->
+    <string name="app_setting_dialog_title">Settings</string>
+    <string name="app_setting_dialog_video_hardware_decoder">Video Hardware Decoder: </string>
+    <string name="app_setting_dialog_audio_output_channel">Audio Output Channel: </string>
+    <string name="app_setting_dialog_audio_output_sample_rate">Audio Output Sample Rate: </string>
+    <string name="app_setting_dialog_audio_output_sample_format">Audio Output Sample Format: </string>
+    <!--endregion -->
+
+    <!--region VideoAudioSearchDialog-->
+    <string name="video_audio_search_dialog_title">Search</string>
+    <string name="video_audio_search_dialog_searching">Searching&#8230;</string>
+    <string name="video_audio_search_dialog_cancel_search">Cancel</string>
+    <!--endregion-->
+
+    <!--region MediaInfoDialog-->
+    <string name="media_info_dialog_metadata">Metadata:</string>
+    <string name="media_info_dialog_file_title">File</string>
+    <string name="media_info_dialog_file_path">FilePath: %s</string>
+    <string name="media_info_dialog_file_size">FileSize: %s</string>
+    <string name="media_info_dialog_file_format">FileFormat: %s</string>
+    <string name="media_info_dialog_video_title">Video</string>
+    <string name="media_info_dialog_audio_title">Audio</string>
+    <string name="media_info_dialog_decoder">Decoder: %s</string>
+    <string name="media_info_dialog_codec">Codec: %s</string>
+    <string name="media_info_dialog_resolution">Resolution: %s</string>
+    <string name="media_info_dialog_fps">Fps: %.1f</string>
+    <string name="media_info_dialog_pixel_depth">PixelBitDepth: %d bits</string>
+    <string name="media_info_dialog_pixel_format">PixelFormat: %s</string>
+    <string name="media_info_dialog_display_rotation">DisplayRotation: %d</string>
+    <string name="media_info_dialog_display_ratio">DisplayRatio: %.3f</string>
+    <string name="media_info_dialog_channels">Channels: %d</string>
+    <string name="media_info_dialog_simple_rate">SampleRate: %d Hz</string>
+    <string name="media_info_dialog_bitrate">Bitrate: %d kbps</string>
+    <string name="media_info_dialog_simple_depth">SampleBitDepth: %d bits</string>
+    <string name="media_info_dialog_simple_format">SimpleFormat: %s</string>
+    <string name="media_info_dialog_subtitle_title">Subtitle</string>
+    <!--endregion-->
+
+    <!--region PlayerSettingsDialog-->
+    <string name="player_setting_dialog_crop_image">Crop Image: </string>
+    <string name="player_setting_dialog_ascii_filter">Ascii Filter: </string>
+    <string name="player_setting_dialog_ascii_filter_settings">Ascii Filter Settings: </string>
+    <string name="player_setting_dialog_ascii_char_reverse">Char Reverse: </string>
+    <string name="player_setting_dialog_ascii_color_reverse">Color Reverse: </string>
+    <string name="player_setting_dialog_ascii_char_width">Char Width: %d</string>
+    <string name="player_setting_dialog_ascii_image_color_fill_rate">Image Color Fill Rate: %d</string>
+    <string name="player_setting_dialog_subtitle_settings">Subtitle Settings: </string>
+    <string name="player_setting_dialog_subtitle_x_offset">Subtitle X-axis Offset: %d</string>
+    <string name="player_setting_dialog_subtitle_y_offset">Subtitle Y-axis Offset: %d</string>
+    <!--endregion-->
+
+    <!--region MainActivity -->
+    <string name="main_act_videos_tab">VIDEOS</string>
+    <string name="main_act_audios_tab">AUDIOS</string>
+    <string name="main_act_images_tab">IMAGES</string>
+    <string name="main_act_iptv_tab">IPTV</string>
+    <string name="main_act_storage_permission_request_title">Request Permission</string>
+    <string name="main_act_storage_permission_request_body">tAsciiArtPlayer needs storage permission to scan new video and audio files.</string>
+    <string name="main_act_storage_permission_request_accept">YES</string>
+    <string name="main_act_storage_permission_request_deny">NO</string>
+    <string name="main_act_found_new_videos_audios">Found %d new videos and %d new audios.</string>
+    <!--endregion MainActivity -->
+
+    <!--region VideosFragment-->
+    <string name="videos_fgt_no_video">No Video</string>
+    <!--endregion-->
+
+    <!--region AudiosFragment-->
+    <string name="audios_fgt_all_audios">All Audios</string>
+    <string name="audios_fgt_my_favorites">My Favorites</string>
+    <string name="audios_fgt_albums">Albums</string>
+    <string name="audios_fgt_artists">Artists</string>
+    <string name="audios_fgt_custom_playlists">Custom Playlists</string>
+    <string name="audios_fgt_no_audio">No Audio</string>
+    <string name="audios_fgt_no_artist">No Artist</string>
+    <string name="audios_fgt_no_album">No Album</string>
+    <string name="audios_fgt_no_play">No Play</string>
+    <!--endregion-->
+
+    <!--region IptvFragment-->
+    <string name="iptv_fgt_no_data">No Data</string>
+    <!--endregion -->
+
+    <!--region VideoPlayerActivity-->
+    <string name="video_player_act_error">An error occurred. T_T</string>
+    <!--endregion -->
+
+    <!--region AudioPlayerActivity-->
+    <string name="audio_player_act_list_play_end">Play End</string>
+    <string name="audio_player_act_next_play">Next play: %s</string>
+    <!--endregion -->
+
+    <!--region ImagesFragment-->
+    <string name="images_fgt_no_image">No Image</string>
+    <!--endregion-->
+
+    <!--region ImageAsciiActivity-->
+    <string name="image_ascii_act_title">Ascii Art</string>
+    <string name="image_ascii_act_pick_image">Pick Image</string>
+    <string name="image_ascii_act_empty">Pick an image to convert it to ascii art.</string>
+    <string name="image_ascii_act_converting">Converting&#8230;</string>
+    <string name="image_ascii_act_info">%1$d x %2$d px  |  Grid %3$d x %4$d  |  %5$d chars</string>
+    <string name="image_ascii_act_decode_error">Load image fail, please pick another one.</string>
+    <string name="image_ascii_act_convert_error">Convert image fail: %1$s</string>
+    <string name="image_ascii_act_saved">Saved: %1$s</string>
+    <string name="image_ascii_act_save_error">Save fail: %1$s</string>
+    <string name="image_ascii_act_copy_success">Ascii art text is copied.</string>
+    <string name="image_ascii_act_no_text">Nothing to copy, please wait for the conversion.</string>
+    <string name="image_ascii_act_save_before_share">Please save the ascii art file before sharing it.</string>
+    <string name="image_ascii_act_permission_denied">Storage permission is needed to save files on Android 9 and lower.</string>
+    <!--endregion-->
+
+    <!--region ImageAsciiSettings-->
+    <string name="image_ascii_setting_title">Ascii Art Settings</string>
+    <string name="image_ascii_setting_char_width">Char Width: %1$d</string>
+    <string name="image_ascii_setting_color_fill_rate">Image Color Fill Rate: %1$d</string>
+    <string name="image_ascii_setting_text_rows">Text Rows Ratio: %1$d</string>
+    <string name="image_ascii_setting_char_reverse">Char Reverse: </string>
+    <string name="image_ascii_setting_color_reverse">Color Reverse: </string>
+    <string name="image_ascii_setting_keep_image_color">Keep Image Color: </string>
+    <string name="image_ascii_setting_monospace">Monospace Font: </string>
+    <string name="image_ascii_setting_text_mode">Text Mode: </string>
+    <string name="image_ascii_setting_close">CLOSE</string>
+    <!--endregion-->
+
+    <!--region ImageAsciiMenu-->
+    <string name="image_ascii_menu_pick_image">Pick Image</string>
+    <string name="image_ascii_menu_settings">Ascii Settings</string>
+    <string name="image_ascii_menu_save_png">Save Ascii Art Image</string>
+    <string name="image_ascii_menu_save_txt">Save Ascii Art Text</string>
+    <string name="image_ascii_menu_copy_text">Copy Ascii Art Text</string>
+    <string name="image_ascii_menu_share">Share Ascii Art</string>
+    <!--endregion-->
+
+    <!--region MediaLinkDialog-->
+    <string name="media_link_dialog_title">MediaLink</string>
+    <string name="media_link_dialog_input_hint">Input a media link.</string>
+    <string name="media_link_dialog_ok">OK</string>
+    <string name="media_link_dialog_cancel">CANCEL</string>
+    <!--endregion-->
+
+    <!--region IptvSourceDialog -->
+    <string name="iptv_source_dialog_title">IPTV Source</string>
+    <string name="iptv_source_dialog_add_iptv_source">Add IPTV source</string>
+    <!--endregion -->
+
+    <!-- region AddIptvSourceDialog -->
+    <string name="add_iptv_source_dialog_title">Add IPTV Source</string>
+    <string name="add_iptv_source_dialog_input_name_hint">Input IPTV source name.</string>
+    <string name="add_iptv_source_dialog_input_name_error">Source name is empty.</string>
+    <string name="add_iptv_source_dialog_input_source_hint">Input IPTV source link.</string>
+    <string name="add_iptv_source_dialog_input_link_error">Source link is empty.</string>
+    <!--endregion -->
+
+    <!--region ModifyIptvSourceDialog-->
+    <string name="modify_iptv_source_dialog_title">Modify IPTV Source</string>
+    <string name="modify_iptv_source_dialog_input_name_hint">Input new IPTV source name.</string>
+    <string name="modify_iptv_source_dialog_input_name_error">New source name is empty.</string>
+    <string name="modify_iptv_source_dialog_input_source_hint">Input new IPTV source link.</string>
+    <string name="modify_iptv_source_dialog_input_link_error">New source link is empty.</string>
+    <!--endregion -->
+</resources>

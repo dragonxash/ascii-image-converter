@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item android:id="@+id/pick_image"
+        android:title="@string/image_ascii_menu_pick_image"
+        android:icon="@drawable/icon_image"
+        app:showAsAction="ifRoom"/>
+
+    <item android:id="@+id/ascii_settings"
+        android:title="@string/image_ascii_menu_settings"
+        android:icon="@drawable/icon_settings"
+        app:showAsAction="ifRoom"/>
+
+    <item android:id="@+id/save_png"
+        android:title="@string/image_ascii_menu_save_png"
+        android:icon="@drawable/icon_save"
+        app:showAsAction="never"/>
+
+    <item android:id="@+id/save_txt"
+        android:title="@string/image_ascii_menu_save_txt"
+        android:icon="@drawable/icon_text"
+        app:showAsAction="never"/>
+
+    <item android:id="@+id/copy_text"
+        android:title="@string/image_ascii_menu_copy_text"
+        android:icon="@drawable/icon_copy"
+        app:showAsAction="never"/>
+
+    <item android:id="@+id/share_ascii"
+        android:title="@string/image_ascii_menu_share"
+        android:icon="@drawable/icon_share"
+        app:showAsAction="never"/>
+
+</menu>

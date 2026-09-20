@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_style"
+        android:icon="@drawable/ic_action_style"
+        android:title="@string/main_settings"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_text_output"
+        android:icon="@drawable/ic_action_text"
+        android:title="@string/text_output_title"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/action_import"
+        android:title="@string/main_import"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_language"
+        android:title="@string/main_language"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_last_error"
+        android:title="@string/main_last_error"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_about"
+        android:title="@string/main_about"
+        app:showAsAction="never" />
+
+</menu>

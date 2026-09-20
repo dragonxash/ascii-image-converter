@@ -1,0 +1,2340 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index bf97e2e..7b4d9d2 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -4,8 +4,10 @@
+ 
+     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
++    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" android:minSdkVersion="33" />
+     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" android:minSdkVersion="33" />
++    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" android:minSdkVersion="33" />
+     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" android:minSdkVersion="34" />
+     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" android:minSdkVersion="33" />
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+@@ -63,6 +65,36 @@
+             android:launchMode="singleTask"
+             tools:ignore="DiscouragedApi,LockedOrientationActivity" />
+ 
++        <activity
++            android:name=".ui.imageascii.ImageAsciiActivity"
++            android:exported="true"
++            android:screenOrientation="portrait"
++            android:configChanges="screenSize|orientation|uiMode"
++            android:taskAffinity=".tAsciiArtPlayer"
++            android:launchMode="singleTask"
++            tools:ignore="DiscouragedApi,LockedOrientationActivity">
++
++            <!-- Open a picture with this app. -->
++            <intent-filter>
++                <action android:name="android.intent.action.VIEW" />
++
++                <category android:name="android.intent.category.DEFAULT" />
++                <category android:name="android.intent.category.BROWSABLE" />
++
++                <data android:mimeType="image/*" />
++            </intent-filter>
++
++            <!-- Share a picture to this app. -->
++            <intent-filter>
++                <action android:name="android.intent.action.SEND" />
++
++                <category android:name="android.intent.category.DEFAULT" />
++
++                <data android:mimeType="image/*" />
++            </intent-filter>
++
++        </activity>
++
+         <service
+             android:name=".audio.audioplayer.AudioPlaybackService"
+             android:foregroundServiceType="mediaPlayback"
+diff --git a/app/src/main/java/com/tans/tasciiartplayer/App.kt b/app/src/main/java/com/tans/tasciiartplayer/App.kt
+index c7b42f3..459fed8 100644
+--- a/app/src/main/java/com/tans/tasciiartplayer/App.kt
++++ b/app/src/main/java/com/tans/tasciiartplayer/App.kt
+@@ -16,6 +16,7 @@ import com.tans.tasciiartplayer.database.AppDatabase
+ import com.tans.tasciiartplayer.hwevent.HeadsetObserver
+ import com.tans.tasciiartplayer.hwevent.MediaKeyObserver
+ import com.tans.tasciiartplayer.hwevent.PhoneObserver
++import com.tans.tasciiartplayer.image.ImageManager
+ import com.tans.tasciiartplayer.iptv.IptvManager
+ import com.tans.tasciiartplayer.video.VideoManager
+ import com.tans.tuiutils.systembar.AutoApplySystemBarAnnotation
+@@ -58,6 +59,7 @@ class App : Application() {
+ 
+         AppSettings.init(this)
+         VideoManager.init(this, database.videoDao())
++        ImageManager.init(this)
+         AudioListManager.init(this, database.audioDao())
+         IptvManager.init(this, database.iptvDao())
+         AudioPlayerManager.init(this)
+diff --git a/app/src/main/java/com/tans/tasciiartplayer/image/AsciiArtConverter.kt b/app/src/main/java/com/tans/tasciiartplayer/image/AsciiArtConverter.kt
+new file mode 100644
+index 0000000..53b1cd0
+--- /dev/null
++++ b/app/src/main/java/com/tans/tasciiartplayer/image/AsciiArtConverter.kt
+@@ -0,0 +1,381 @@
++package com.tans.tasciiartplayer.image
++
++import android.graphics.Bitmap
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.Rect
++import android.graphics.Typeface
++import androidx.annotation.ColorInt
++import kotlin.math.abs
++import kotlin.math.max
++import kotlin.math.roundToInt
++
++/**
++ * Convert a picture to ascii art.
++ *
++ * The player already has an ascii filter for videos
++ * (`com.tans.tmediaplayer.player.playerview.filter.AsciiArtImageFilter`), this class is a CPU
++ * (Canvas based) port of it, so a picture gets the same look and the same settings as a video:
++ *
++ * 1. The picture is scaled down to [AsciiArtOptions.charLineWidth] columns and
++ *    `columns * height / width` rows, every grid cell is a square.
++ * 2. Every cell is mapped to a char of [ASCII_CHARS] by its BT.601 luma
++ *    (`0.299 * r + 0.587 * g + 0.114 * b`), using the same 92 levels table as the filter.
++ * 3. Every char is drawn inside its cell, with the cell average color when
++ *    `cellLuma < colorFillRate` otherwise with [AsciiArtOptions.foregroundColor].
++ *    [AsciiArtOptions.reverseColor] punches the char shape out of the cell(inverted glyph),
++ *    [AsciiArtOptions.reverseChar] flips the luma -> char mapping.
++ *
++ * Different to the filter, the result can also be exported as text([AsciiArtGrid.toText]) or
++ * as a picture([renderImage]) file.
++ */
++object AsciiArtConverter {
++
++    const val MIN_CHAR_LINE_WIDTH = 16
++    const val MAX_CHAR_LINE_WIDTH = 256
++    const val DEFAULT_CHAR_LINE_WIDTH = 128
++
++    /** Max width(px) of the rendered ascii picture, to avoid oom on huge photos. */
++    const val MAX_OUTPUT_WIDTH = 2160
++
++    /**
++     * The glyph of a monospace font is about twice as tall as it is wide, so the text output
++     * needs only half of the rows of the square cell grid to keep the picture aspect.
++     */
++    const val DEFAULT_TEXT_ASPECT_RATIO = 0.5f
++
++    /** The same chars table as tMediaPlayer's ascii filter, light level -> char. */
++    const val ASCII_CHARS = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#\$Bg0MNWQ%&@"
++
++    /** The light level of every char of [ASCII_CHARS], same table as the filter. */
++    private val ASCII_CHARS_LIGHT_LEVEL = doubleArrayOf(
++        0.0, 0.0751, 0.0829, 0.0848, 0.1227, 0.1403, 0.1559, 0.185, 0.2183, 0.2417, 0.2571, 0.2852,
++        0.2902, 0.2919, 0.3099, 0.3192, 0.3232, 0.3294, 0.3384, 0.3609, 0.3619, 0.3667, 0.3737, 0.3747,
++        0.3838, 0.3921, 0.396, 0.3984, 0.3993, 0.4075, 0.4091, 0.4101, 0.42, 0.423, 0.4247, 0.4274,
++        0.4293, 0.4328, 0.4382, 0.4385, 0.442, 0.4473, 0.4477, 0.4503, 0.4562, 0.458, 0.461, 0.4638,
++        0.4667, 0.4686, 0.4693, 0.4703, 0.4833, 0.4881, 0.4944, 0.4953, 0.4992, 0.5509, 0.5567, 0.5569,
++        0.5591, 0.5602, 0.5602, 0.565, 0.5776, 0.5777, 0.5818, 0.587, 0.5972, 0.5999, 0.6043, 0.6049,
++        0.6093, 0.6099, 0.6465, 0.6561, 0.6595, 0.6631, 0.6714, 0.6759, 0.6809, 0.6816, 0.6925, 0.7039,
++        0.7086, 0.7235, 0.7302, 0.7332, 0.7602, 0.7834, 0.8037, 0.9999
++    )
++
++    /** luma(0..255) -> char index. */
++    private val ASCII_LIGHT_LEVEL_INDEX: IntArray = IntArray(256) { charIndexForLightLevel(it / 255.0) }
++
++    /** luma(0..255) -> char index, for the reversed char mode. */
++    private val ASCII_LIGHT_LEVEL_INDEX_REVERSE: IntArray = IntArray(256) { ASCII_LIGHT_LEVEL_INDEX[255 - it] }
++
++    /** How many pixels of the cell height a char takes, same as the filter's glyph texture. */
++    private const val GLYPH_TEXT_SIZE_RATIO = 1.1f
++
++    /**
++     * @return the luma of [color], 0(pure black)..255(pure white).
++     */
++    @JvmStatic
++    fun lumaOf(@ColorInt color: Int): Int =
++        (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)).roundToInt().coerceIn(0, 255)
++
++    /**
++     * @return the index of the char of [ASCII_CHARS] which should be used for [luma].
++     */
++    @JvmStatic
++    fun charIndexForLuma(luma: Int, reverseChar: Boolean): Int {
++        val level = luma.coerceIn(0, 255)
++        return if (reverseChar) ASCII_LIGHT_LEVEL_INDEX_REVERSE[level] else ASCII_LIGHT_LEVEL_INDEX[level]
++    }
++
++    /**
++     * @return the char of [ASCII_CHARS] which should be used for [luma].
++     */
++    @JvmStatic
++    fun charForLuma(luma: Int, reverseChar: Boolean): Char =
++        ASCII_CHARS[charIndexForLuma(luma, reverseChar)]
++
++    private fun charIndexForLightLevel(inputLightLevel: Double): Int {
++        var targetPreIndex = 0
++        var targetNextIndex = -1
++        for (i in ASCII_CHARS_LIGHT_LEVEL.indices) {
++            if (ASCII_CHARS_LIGHT_LEVEL[i] < inputLightLevel) {
++                targetPreIndex = i
++            }
++            if (ASCII_CHARS_LIGHT_LEVEL[i] > inputLightLevel) {
++                targetNextIndex = i
++                break
++            }
++        }
++        return if (targetNextIndex < 0) {
++            ASCII_CHARS_LIGHT_LEVEL.lastIndex
++        } else {
++            val preValue = ASCII_CHARS_LIGHT_LEVEL[targetPreIndex]
++            val nextValue = ASCII_CHARS_LIGHT_LEVEL[targetNextIndex]
++            if (abs(inputLightLevel - preValue) > abs(inputLightLevel - nextValue)) {
++                targetNextIndex
++            } else {
++                targetPreIndex
++            }
++        }
++    }
++
++    /**
++     * @return the cell grid of [source].
++     */
++    fun buildGrid(source: Bitmap, options: AsciiArtOptions): AsciiArtGrid =
++        buildGrid(source, options, forText = false)
++
++    /**
++     * @return the ascii art text of [source].
++     */
++    fun renderText(source: Bitmap, options: AsciiArtOptions, trimTrailingSpaces: Boolean = true): String =
++        buildGrid(source, options, forText = true).toText(trimTrailingSpaces = trimTrailingSpaces)
++
++    /**
++     * @return the ascii art picture of [source].
++     */
++    fun renderImage(source: Bitmap, options: AsciiArtOptions): Bitmap {
++        val fixedOptions = options.clamp()
++        val grid = buildGrid(source, fixedOptions, forText = false)
++        val targetWidth = source.width.coerceIn(grid.columns, MAX_OUTPUT_WIDTH)
++        val cellSize = targetWidth.toFloat() / grid.columns.toFloat()
++        val targetHeight = max(1, (cellSize * grid.rows.toFloat() + 0.5f).toInt())
++        val output = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
++        val canvas = Canvas(output)
++        canvas.drawColor(fixedOptions.backgroundColor)
++
++        val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
++            isFilterBitmap = true
++            typeface = fixedOptions.glyphTypeface()
++            textAlign = Paint.Align.LEFT
++            textSize = cellSize * GLYPH_TEXT_SIZE_RATIO
++        }
++        val fontMetrics = glyphPaint.fontMetrics
++        val fontHeight = fontMetrics.bottom - fontMetrics.top
++        // Same as the filter: draw the char from the top of the cell.
++        val baselineInCellRatio = if (fontHeight <= 0f) 0.8f else -fontMetrics.top / fontHeight
++        val cellRect = Rect()
++        for (row in 0 until grid.rows) {
++            val cellTop = row * cellSize
++            val baseline = cellTop + baselineInCellRatio * cellSize
++            for (column in 0 until grid.columns) {
++                val char = grid.charAt(column, row)
++                if (char == ' ' && !fixedOptions.reverseColor) {
++                    continue
++                }
++                val luma = grid.lumaAt(column, row)
++                val useImageColor = fixedOptions.keepImageColor && fixedOptions.colorFillRate > luma / 255.0f
++                val charColor = if (useImageColor) {
++                    grid.colorAt(column, row) or OPAQUE_ALPHA
++                } else {
++                    fixedOptions.foregroundColor
++                }
++                val cellLeft = column * cellSize
++                val charX = cellLeft + max((cellSize - glyphPaint.measureText(char.toString())) / 2.0f, 0.0f)
++                if (fixedOptions.reverseColor) {
++                    // Reverse color = the char shape is punched out of a solid cell.
++                    cellRect.set(
++                        cellLeft.toInt(),
++                        cellTop.toInt(),
++                        (cellLeft + cellSize).toInt() + 1,
++                        (cellTop + cellSize).toInt() + 1
++                    )
++                    glyphPaint.color = charColor
++                    canvas.drawRect(cellRect, glyphPaint)
++                    glyphPaint.color = fixedOptions.backgroundColor
++                    canvas.drawText(char.toString(), charX, baseline, glyphPaint)
++                } else {
++                    glyphPaint.color = charColor
++                    canvas.drawText(char.toString(), charX, baseline, glyphPaint)
++                }
++            }
++        }
++        return output
++    }
++
++    private const val OPAQUE_ALPHA = 0xFF000000.toInt()
++
++    private fun buildGrid(source: Bitmap, options: AsciiArtOptions, forText: Boolean): AsciiArtGrid {
++        val fixedOptions = options.clamp()
++        val columns = fixedOptions.charLineWidth
++        val rows = rowsOf(source, fixedOptions, columns, forText)
++        val cellCount = columns * rows
++        val charIndices = IntArray(cellCount)
++        val cellColors = IntArray(cellCount)
++        val cellLumas = IntArray(cellCount)
++        val cellPixels = IntArray(cellCount)
++        val scaled = scaleToCells(source, fixedOptions.backgroundColor, columns, rows)
++        try {
++            scaled.getPixels(cellPixels, 0, columns, 0, 0, columns, rows)
++        } finally {
++            if (scaled !== source) {
++                scaled.recycle()
++            }
++        }
++        for (i in 0 until cellCount) {
++            val color = cellPixels[i]
++            val luma = lumaOf(color)
++            charIndices[i] = charIndexForLuma(luma, fixedOptions.reverseChar)
++            cellColors[i] = color and RGB_MASK
++            cellLumas[i] = luma
++        }
++        return AsciiArtGrid(
++            columns = columns,
++            rows = rows,
++            charIndices = charIndices,
++            cellColors = cellColors,
++            cellLumas = cellLumas
++        )
++    }
++
++    private const val RGB_MASK = 0x00FFFFFF
++
++    /**
++     * Rows of the cell grid, same as the filter: `columns * height / width`.
++     * For the text output the rows are corrected by [AsciiArtOptions.textAspectRatio].
++     */
++    private fun rowsOf(source: Bitmap, options: AsciiArtOptions, columns: Int, forText: Boolean): Int {
++        val width = source.width.coerceAtLeast(1).toFloat()
++        val height = source.height.toFloat()
++        val aspectRatio = if (forText) options.textAspectRatio else 1.0f
++        return max(1, (columns.toFloat() * height / width * aspectRatio).toInt())
++    }
++
++    /**
++     * Scale [source] to the cell grid(with the average color of every cell), transparent pixels
++     * are composited on [backgroundColor] first.
++     */
++    private fun scaleToCells(source: Bitmap, @ColorInt backgroundColor: Int, columns: Int, rows: Int): Bitmap {
++        val flat = if (source.hasAlpha()) {
++            Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888).also { composed ->
++                val canvas = Canvas(composed)
++                canvas.drawColor(backgroundColor)
++                canvas.drawBitmap(source, 0.0f, 0.0f, Paint(Paint.FILTER_BITMAP_FLAG))
++            }
++        } else {
++            source
++        }
++        val scaled = Bitmap.createScaledBitmap(flat, columns, rows, true)
++        if (flat !== source && flat !== scaled) {
++            flat.recycle()
++        }
++        return scaled
++    }
++}
++
++/**
++ * The result of [AsciiArtConverter]: chars + the source color/luma of every cell.
++ */
++class AsciiArtGrid internal constructor(
++    val columns: Int,
++    val rows: Int,
++    private val charIndices: IntArray,
++    private val cellColors: IntArray,
++    private val cellLumas: IntArray
++) {
++
++    val cellCount: Int
++        get() = charIndices.size
++
++    fun charAt(column: Int, row: Int): Char =
++        AsciiArtConverter.ASCII_CHARS[charIndexAt(column, row)]
++
++    fun charIndexAt(column: Int, row: Int): Int =
++        charIndices[row * columns + column].coerceIn(0, AsciiArtConverter.ASCII_CHARS.length - 1)
++
++    @ColorInt
++    fun colorAt(column: Int, row: Int): Int = cellColors[row * columns + column]
++
++    fun lumaAt(column: Int, row: Int): Int = cellLumas[row * columns + column]
++
++    /**
++     * @param trimTrailingSpaces trim the redundant spaces of every line, keeps the file smaller.
++     */
++    fun toText(trimTrailingSpaces: Boolean = true): String {
++        val builder = StringBuilder(cellCount + rows)
++        for (row in 0 until rows) {
++            var end = columns
++            if (trimTrailingSpaces) {
++                while (end > 0 && charIndexAt(end - 1, row) == SPACE_CHAR_INDEX) {
++                    end--
++                }
++            }
++            for (column in 0 until end) {
++                builder.append(charAt(column, row))
++            }
++            if (row != rows - 1) {
++                builder.append('\n')
++            }
++        }
++        return builder.toString()
++    }
++
++    private companion object {
++        /** Index of the space char in [AsciiArtConverter.ASCII_CHARS]. */
++        private const val SPACE_CHAR_INDEX = 0
++    }
++}
++
++/**
++ * Setting of the ascii art conversion, the same knobs as the player's ascii filter.
++ */
++data class AsciiArtOptions(
++    /** Chars of every line, [AsciiArtConverter.MIN_CHAR_LINE_WIDTH]..[AsciiArtConverter.MAX_CHAR_LINE_WIDTH]. */
++    val charLineWidth: Int = AsciiArtConverter.DEFAULT_CHAR_LINE_WIDTH,
++    /** Flip the luma -> char mapping, dark picture becomes light ascii art. */
++    val reverseChar: Boolean = false,
++    /** Punch the char shape out of the cell, same as the filter's reverse color. */
++    val reverseColor: Boolean = false,
++    /** Chars with a cell luma lower than this rate are drawn with the picture color, else with [foregroundColor]. */
++    val colorFillRate: Float = 0.0f,
++    /** Color of the chars, when they are not drawn with the picture color. */
++    @ColorInt val foregroundColor: Int = Color.WHITE,
++    /** Color of the ascii art background. */
++    @ColorInt val backgroundColor: Int = Color.BLACK,
++    /** Draw a char with the color of its cell instead of [foregroundColor]. */
++    val keepImageColor: Boolean = true,
++    /** The player's filter uses the default font, a monospace font looks more like a terminal. */
++    val useMonospaceFont: Boolean = true,
++    /** Rows ratio of the text output, see [AsciiArtConverter.DEFAULT_TEXT_ASPECT_RATIO]. */
++    val textAspectRatio: Float = AsciiArtConverter.DEFAULT_TEXT_ASPECT_RATIO
++) {
++
++    /** Progress(0..100) of the char line width seek bar, same as the player's settings dialog. */
++    fun charLineWidthInPercent(): Int = charLineWidthToPercent(charLineWidth)
++
++    fun textAspectRatioInPercent(): Int = (textAspectRatio * 100.0f + 0.5f).toInt()
++
++    internal fun clamp(): AsciiArtOptions = copy(
++        charLineWidth = charLineWidth.coerceIn(
++            AsciiArtConverter.MIN_CHAR_LINE_WIDTH,
++            AsciiArtConverter.MAX_CHAR_LINE_WIDTH
++        ),
++        colorFillRate = colorFillRate.coerceIn(0.0f, 1.0f),
++        textAspectRatio = textAspectRatio.coerceIn(MIN_TEXT_ASPECT_RATIO, MAX_TEXT_ASPECT_RATIO)
++    )
++
++    internal fun glyphTypeface(): Typeface = if (useMonospaceFont) Typeface.MONOSPACE else Typeface.DEFAULT
++
++    companion object {
++
++        const val MIN_TEXT_ASPECT_RATIO = 0.2f
++        const val MAX_TEXT_ASPECT_RATIO = 1.0f
++
++        /** @return the char line width of a seek bar progress(0..100). */
++        fun percentToCharLineWidth(percent: Int): Int {
++            val fixedPercent = percent.coerceIn(0, 100)
++            return (fixedPercent.toFloat() / 100.0f *
++                (AsciiArtConverter.MAX_CHAR_LINE_WIDTH - AsciiArtConverter.MIN_CHAR_LINE_WIDTH).toFloat() +
++                AsciiArtConverter.MIN_CHAR_LINE_WIDTH.toFloat() + 0.5f).toInt()
++        }
++
++        /** @return the seek bar progress(0..100) of a char line width. */
++        fun charLineWidthToPercent(charLineWidth: Int): Int {
++            val fixedWidth = charLineWidth.coerceIn(
++                AsciiArtConverter.MIN_CHAR_LINE_WIDTH,
++                AsciiArtConverter.MAX_CHAR_LINE_WIDTH
++            )
++            return ((fixedWidth.toFloat() - AsciiArtConverter.MIN_CHAR_LINE_WIDTH.toFloat()) /
++                (AsciiArtConverter.MAX_CHAR_LINE_WIDTH - AsciiArtConverter.MIN_CHAR_LINE_WIDTH).toFloat() *
++                100.0f + 0.5f).toInt()
++        }
++    }
++}
+diff --git a/app/src/main/java/com/tans/tasciiartplayer/image/AsciiArtExporter.kt b/app/src/main/java/com/tans/tasciiartplayer/image/AsciiArtExporter.kt
+new file mode 100644
+index 0000000..5e0c37c
+--- /dev/null
++++ b/app/src/main/java/com/tans/tasciiartplayer/image/AsciiArtExporter.kt
+@@ -0,0 +1,192 @@
++package com.tans.tasciiartplayer.image
++
++import android.content.ContentValues
++import android.content.Context
++import android.content.Intent
++import android.graphics.Bitmap
++import android.net.Uri
++import android.os.Build
++import android.os.Environment
++import android.provider.MediaStore
++import androidx.annotation.WorkerThread
++import java.io.File
++import java.io.FileOutputStream
++import java.io.OutputStream
++
++/**
++ * Save the ascii art result as a picture or a text file, and share it.
++ *
++ * - Android 10+ : files are inserted into MediaStore, so they show up in the gallery/file
++ *   manager and can be shared, no storage permission is needed.
++ * - Android 9-  : files are written to the public pictures/downloads directory, which needs
++ *   [android.Manifest.permission.WRITE_EXTERNAL_STORAGE].
++ */
++object AsciiArtExporter {
++
++    private const val ALBUM_NAME = "tAsciiArtPlayer"
++
++    const val PNG_MIME_TYPE = "image/png"
++    const val TEXT_MIME_TYPE = "text/plain"
++
++    const val PNG_FILE_SUFFIX = ".ascii.png"
++    const val TEXT_FILE_SUFFIX = ".ascii.txt"
++
++    data class SavedAsciiArt(
++        val uri: Uri,
++        val displayName: String,
++        val mimeType: String,
++        /** Path of the file, only for showing to the user. */
++        val readablePath: String
++    )
++
++    /**
++     * @return true if saving files on this device needs [android.Manifest.permission.WRITE_EXTERNAL_STORAGE].
++     */
++    fun needsWritePermission(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
++
++    @WorkerThread
++    fun savePng(context: Context, bitmap: Bitmap, baseName: String): SavedAsciiArt {
++        val displayName = buildFileName(baseName, PNG_FILE_SUFFIX)
++        return save(
++            context = context,
++            displayName = displayName,
++            mimeType = PNG_MIME_TYPE,
++            relativeDirectory = Environment.DIRECTORY_PICTURES,
++            isPicture = true
++        ) { outputStream ->
++            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)) {
++                error("Compress ascii art png fail.")
++            }
++        }
++    }
++
++    @WorkerThread
++    fun saveText(context: Context, text: String, baseName: String): SavedAsciiArt {
++        val displayName = buildFileName(baseName, TEXT_FILE_SUFFIX)
++        return save(
++            context = context,
++            displayName = displayName,
++            mimeType = TEXT_MIME_TYPE,
++            relativeDirectory = Environment.DIRECTORY_DOWNLOADS,
++            isPicture = false
++        ) { outputStream ->
++            outputStream.write(text.toByteArray(Charsets.UTF_8))
++            outputStream.flush()
++        }
++    }
++
++    /**
++     * @return an [Intent.ACTION_SEND] intent of a saved ascii art file.
++     */
++    fun createShareIntent(savedAsciiArt: SavedAsciiArt): Intent {
++        return Intent(Intent.ACTION_SEND).apply {
++            type = savedAsciiArt.mimeType
++            putExtra(Intent.EXTRA_STREAM, savedAsciiArt.uri)
++            putExtra(Intent.EXTRA_TITLE, savedAsciiArt.displayName)
++            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
++        }
++    }
++
++    /**
++     * @return an [Intent.ACTION_SEND] intent of a text ascii art.
++     */
++    fun createShareTextIntent(text: String): Intent {
++        return Intent(Intent.ACTION_SEND).apply {
++            type = TEXT_MIME_TYPE
++            putExtra(Intent.EXTRA_TEXT, text)
++        }
++    }
++
++    private fun save(
++        context: Context,
++        displayName: String,
++        mimeType: String,
++        relativeDirectory: String,
++        isPicture: Boolean,
++        writeContent: (OutputStream) -> Unit
++    ): SavedAsciiArt {
++        val resolver = context.contentResolver
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
++            val collection = if (isPicture) {
++                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
++            } else {
++                MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
++            }
++            val values = ContentValues().apply {
++                put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
++                put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
++                put(MediaStore.MediaColumns.RELATIVE_PATH, "$relativeDirectory/$ALBUM_NAME")
++                if (isPicture) {
++                    put(MediaStore.MediaColumns.IS_PENDING, 1)
++                }
++            }
++            val uri = resolver.insert(collection, values) ?: error("Can not insert $displayName to MediaStore.")
++            try {
++                resolver.openOutputStream(uri)?.use(writeContent) ?: error("Can not open output stream of $uri.")
++            } catch (e: Throwable) {
++                runCatching { resolver.delete(uri, null, null) }
++                throw e
++            }
++            if (isPicture) {
++                values.clear()
++                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
++                resolver.update(uri, values, null, null)
++            }
++            return SavedAsciiArt(
++                uri = uri,
++                displayName = displayName,
++                mimeType = mimeType,
++                readablePath = "$relativeDirectory/$ALBUM_NAME/$displayName"
++            )
++        } else {
++            val directory = File(Environment.getExternalStoragePublicDirectory(relativeDirectory), ALBUM_NAME)
++            if (!directory.exists() && !directory.mkdirs()) {
++                error("Can not create directory ${directory.absolutePath}.")
++            }
++            val file = File(directory, displayName)
++            FileOutputStream(file).use(writeContent)
++            val uri = insertLegacyFile(context, file, mimeType, isPicture)
++            return SavedAsciiArt(
++                uri = uri,
++                displayName = displayName,
++                mimeType = mimeType,
++                readablePath = file.absolutePath
++            )
++        }
++    }
++
++    /**
++     * Android 9 and lower, insert a public file to MediaStore by its path to get a shareable uri.
++     */
++    @Suppress("DEPRECATION")
++    private fun insertLegacyFile(context: Context, file: File, mimeType: String, isPicture: Boolean): Uri {
++        val values = ContentValues().apply {
++            put(MediaStore.MediaColumns.DATA, file.absolutePath)
++            put(MediaStore.MediaColumns.DISPLAY_NAME, file.name)
++            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
++            put(MediaStore.MediaColumns.SIZE, file.length())
++            put(MediaStore.MediaColumns.DATE_ADDED, System.currentTimeMillis() / 1000L)
++            put(MediaStore.MediaColumns.DATE_MODIFIED, System.currentTimeMillis() / 1000L)
++        }
++        val collection = if (isPicture) {
++            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
++        } else {
++            MediaStore.Files.getContentUri("external")
++        }
++        return runCatching { context.contentResolver.insert(collection, values) }
++            .getOrNull()
++            ?: Uri.fromFile(file)
++    }
++
++    private fun buildFileName(baseName: String, suffix: String): String {
++        val fixedBaseName = baseName
++            .substringBeforeLast('.')
++            .replace(Regex("[/\\\\:*?\"<>|\\p{Cntrl}]"), "_")
++            .trim()
++            .take(MAX_BASE_NAME_LENGTH)
++            .ifBlank { "ascii_art_${System.currentTimeMillis()}" }
++        return "$fixedBaseName$suffix"
++    }
++
++    private const val MAX_BASE_NAME_LENGTH = 60
++}
+diff --git a/app/src/main/java/com/tans/tasciiartplayer/image/ImageManager.kt b/app/src/main/java/com/tans/tasciiartplayer/image/ImageManager.kt
+new file mode 100644
+index 0000000..489e69c
+--- /dev/null
++++ b/app/src/main/java/com/tans/tasciiartplayer/image/ImageManager.kt
+@@ -0,0 +1,40 @@
++package com.tans.tasciiartplayer.image
++
++import android.app.Application
++import androidx.annotation.WorkerThread
++import com.tans.tasciiartplayer.AppLog
++import com.tans.tasciiartplayer.appGlobalCoroutineScope
++import com.tans.tuiutils.mediastore.queryImageFromMediaStore
++import com.tans.tuiutils.state.CoroutineState
++import kotlinx.coroutines.CoroutineScope
++
++/**
++ * The pictures of the device, used by the IMAGES tab of the main activity.
++ */
++object ImageManager : CoroutineState<ImageManagerState> by CoroutineState(ImageManagerState()),
++    CoroutineScope by appGlobalCoroutineScope {
++
++    private var application: Application? = null
++
++    fun init(application: Application) {
++        ImageManager.application = application
++    }
++
++    @WorkerThread
++    suspend fun refreshMediaStoreImages() {
++        val context = application ?: error("Application is null.")
++        val mediaStoreImages = context.queryImageFromMediaStore()
++        val images = mediaStoreImages.mapNotNull { mediaStoreImage ->
++            val file = mediaStoreImage.file
++            if (file == null || file.canRead()) {
++                ImageModel(mediaStoreImage = mediaStoreImage)
++            } else {
++                null
++            }
++        }
++        AppLog.d(TAG, "Refresh media store images: ${images.size}")
++        updateState { it.copy(images = images) }
++    }
++
++    private const val TAG = "ImageManager"
++}
+diff --git a/app/src/main/java/com/tans/tasciiartplayer/image/ImageManagerState.kt b/app/src/main/java/com/tans/tasciiartplayer/image/ImageManagerState.kt
+new file mode 100644
+index 0000000..3a05201
+--- /dev/null
++++ b/app/src/main/java/com/tans/tasciiartplayer/image/ImageManagerState.kt
+@@ -0,0 +1,5 @@
++package com.tans.tasciiartplayer.image
++
++data class ImageManagerState(
++    val images: List<ImageModel> = emptyList()
++)
+diff --git a/app/src/main/java/com/tans/tasciiartplayer/image/ImageModel.kt b/app/src/main/java/com/tans/tasciiartplayer/image/ImageModel.kt
+new file mode 100644
+index 0000000..eef7dea
+--- /dev/null
++++ b/app/src/main/java/com/tans/tasciiartplayer/image/ImageModel.kt
+@@ -0,0 +1,14 @@
++package com.tans.tasciiartplayer.image
++
++import com.tans.tuiutils.mediastore.MediaStoreImage
++
++data class ImageModel(
++    val mediaStoreImage: MediaStoreImage
++) {
++
++    val id: Long
++        get() = mediaStoreImage.id
++
++    val displayName: String
++        get() = mediaStoreImage.displayName
++}
+diff --git a/app/src/main/java/com/tans/tasciiartplayer/image/PictureDecoder.kt b/app/src/main/java/com/tans/tasciiartplayer/image/PictureDecoder.kt
+new file mode 100644
+index 0000000..d86d9bc
+--- /dev/null
++++ b/app/src/main/java/com/tans/tasciiartplayer/image/PictureDecoder.kt
+@@ -0,0 +1,110 @@
++package com.tans.tasciiartplayer.image
++
++import android.content.Context
++import android.graphics.Bitmap
++import android.graphics.BitmapFactory
++import android.graphics.ImageDecoder
++import android.net.Uri
++import android.os.Build
++import android.provider.MediaStore
++import android.provider.OpenableColumns
++import androidx.annotation.WorkerThread
++import kotlin.math.max
++
++/**
++ * Load a picture of a uri to a [Bitmap] which can be read pixel by pixel.
++ */
++object PictureDecoder {
++
++    /** Max pixels of the decoded picture, bigger pictures are sampled down. */
++    const val DEFAULT_MAX_SIZE = 2160
++
++    /**
++     * @return the picture of [uri], the exif orientation is already applied on Android 9+.
++     */
++    @WorkerThread
++    fun decode(
++        context: Context,
++        uri: Uri,
++        maxSize: Int = DEFAULT_MAX_SIZE
++    ): Bitmap {
++        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
++            decodeByImageDecoder(context, uri, maxSize)
++        } else {
++            decodeByBitmapFactory(context, uri, maxSize)
++        }
++    }
++
++    /**
++     * @return the name of the file of [uri], null if it can not be read.
++     */
++    @WorkerThread
++    fun queryDisplayName(context: Context, uri: Uri): String? {
++        return runCatching {
++            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
++                ?.use { cursor ->
++                    if (cursor.moveToFirst()) {
++                        val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
++                        if (index >= 0) cursor.getString(index) else null
++                    } else {
++                        null
++                    }
++                }
++        }.getOrNull() ?: uri.lastPathSegment
++    }
++
++    private fun decodeByImageDecoder(context: Context, uri: Uri, maxSize: Int): Bitmap {
++        val source = ImageDecoder.createSource(context.contentResolver, uri)
++        return ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
++            // The ascii art conversion reads the pixels of the bitmap, a hardware bitmap can not be read.
++            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
++            decoder.isMutableRequired = false
++            val size = info.size
++            var sampleSize = 1
++            while (size.width / (sampleSize * 2) >= maxSize || size.height / (sampleSize * 2) >= maxSize) {
++                sampleSize *= 2
++            }
++            decoder.setTargetSampleSize(sampleSize)
++        }
++    }
++
++    @Suppress("DEPRECATION")
++    private fun decodeByBitmapFactory(context: Context, uri: Uri, maxSize: Int): Bitmap {
++        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
++        context.contentResolver.openInputStream(uri)?.use {
++            BitmapFactory.decodeStream(it, null, bounds)
++        }
++        var sampleSize = 1
++        while (bounds.outWidth / (sampleSize * 2) >= maxSize || bounds.outHeight / (sampleSize * 2) >= maxSize) {
++            sampleSize *= 2
++        }
++        val options = BitmapFactory.Options().apply {
++            inSampleSize = max(1, sampleSize)
++            inPreferredConfig = Bitmap.Config.ARGB_8888
++        }
++        return context.contentResolver.openInputStream(uri)?.use {
++            BitmapFactory.decodeStream(it, null, options)
++        } ?: error("Decode image fail: $uri")
++    }
++
++    /**
++     * @return the rotation(0/90/180/270) of the picture of [uri], only used on Android 8 and lower.
++     */
++    @WorkerThread
++    fun queryRotationDegrees(context: Context, uri: Uri): Int {
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
++            return 0
++        }
++        return runCatching {
++            context.contentResolver.query(uri, arrayOf(MediaStore.Images.Media.ORIENTATION), null, null, null)
++                ?.use { cursor ->
++                    if (cursor.moveToFirst()) {
++                        val index = cursor.getColumnIndex(MediaStore.Images.Media.ORIENTATION)
++                        if (index >= 0) cursor.getInt(index) else 0
++                    } else {
++                        0
++                    }
++                } ?: 0
++        }.getOrDefault(0)
++    }
++}
+diff --git a/app/src/main/java/com/tans/tasciiartplayer/ui/imageascii/ImageAsciiActivity.kt b/app/src/main/java/com/tans/tasciiartplayer/ui/imageascii/ImageAsciiActivity.kt
+new file mode 100644
+index 0000000..2931bd5
+--- /dev/null
++++ b/app/src/main/java/com/tans/tasciiartplayer/ui/imageascii/ImageAsciiActivity.kt
+@@ -0,0 +1,602 @@
++package com.tans.tasciiartplayer.ui.imageascii
++
++import android.Manifest
++import android.content.ClipData
++import android.content.ClipboardManager
++import android.content.Context
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.graphics.Bitmap
++import android.graphics.Matrix
++import android.net.Uri
++import android.os.Build
++import android.view.View
++import android.widget.SeekBar
++import android.widget.Toast
++import androidx.activity.result.PickVisualMediaRequest
++import androidx.activity.result.contract.ActivityResultContracts
++import androidx.core.app.ActivityCompat
++import androidx.core.content.ContextCompat
++import com.tans.tasciiartplayer.AppLog
++import com.tans.tasciiartplayer.R
++import com.tans.tasciiartplayer.databinding.ImageAsciiActivityBinding
++import com.tans.tasciiartplayer.image.AsciiArtConverter
++import com.tans.tasciiartplayer.image.AsciiArtExporter
++import com.tans.tasciiartplayer.image.AsciiArtOptions
++import com.tans.tasciiartplayer.image.PictureDecoder
++import com.tans.tuiutils.activity.BaseCoroutineStateActivity
++import com.tans.tuiutils.systembar.annotation.SystemBarStyle
++import com.tans.tuiutils.view.clicks
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.Job
++import kotlinx.coroutines.flow.distinctUntilChanged
++import kotlinx.coroutines.flow.map
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
++
++/**
++ * Convert a picture to ascii art.
++ *
++ * The picture can come from:
++ * - The [Intent.ACTION_VIEW]/[Intent.ACTION_SEND] intent, so the activity can be a share target.
++ * - The IMAGES tab of [com.tans.tasciiartplayer.ui.main.MainActivity].
++ * - The system photo picker, which is opened by the menu item [R.id.pick_image].
++ *
++ * The result can be exported as a picture([AsciiArtExporter.savePng]) or a text file
++ * ([AsciiArtExporter.saveText]), copied to the clipboard or shared.
++ */
++@SystemBarStyle(statusBarThemeStyle = 1, navigationBarThemeStyle = 1)
++class ImageAsciiActivity : BaseCoroutineStateActivity<ImageAsciiActivity.Companion.State>(State()) {
++
++    override val layoutId: Int = R.layout.image_ascii_activity
++
++    /** The bitmap which is showing in the image view, recycled when a new one is rendered. */
++    private var displayedBitmap: Bitmap? = null
++
++    /** The saved file of the current ascii art, used by the share action. */
++    private var savedAsciiArt: AsciiArtExporter.SavedAsciiArt? = null
++
++    private var pendingWritePermissionAction: (() -> Unit)? = null
++
++    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
++        if (uri != null) {
++            updateState { it.copy(uri = uri, displayName = null) }
++        }
++    }
++
++    override fun CoroutineScope.firstLaunchInitDataCoroutine() {
++        val inputUri = intent.getInputPictureUri()
++        if (inputUri != null) {
++            updateState { it.copy(uri = inputUri, displayName = intent.getInputPictureName()) }
++        }
++    }
++
++    override fun CoroutineScope.bindContentViewCoroutine(contentView: View) {
++        val viewBinding = ImageAsciiActivityBinding.bind(contentView)
++        bindToolbar(viewBinding)
++        bindSettings(viewBinding)
++
++        // Convert the picture again when the input picture or the ascii art settings changed.
++        launch {
++            var convertJob: Job? = null
++            stateFlow()
++                .map { ConvertRequest(uri = it.uri, options = it.options) }
++                .distinctUntilChanged()
++                .collect { request ->
++                    convertJob?.cancel()
++                    convertJob = null
++                    if (request.uri == null) {
++                        updateState {
++                            it.copy(
++                                converting = false,
++                                asciiArt = null,
++                                asciiArtText = null,
++                                sourceWidth = 0,
++                                sourceHeight = 0,
++                                gridColumns = 0,
++                                gridRows = 0
++                            )
++                        }
++                    } else {
++                        convertJob = launch(Dispatchers.IO) { convert(request) }
++                    }
++                }
++        }
++
++        // Render the conversion error.
++        renderStateNewCoroutine({ it.error ?: "" }) { error ->
++            if (error.isNotEmpty()) {
++                Toast.makeText(this@ImageAsciiActivity, error, Toast.LENGTH_LONG).show()
++            }
++        }
++
++        // Render the result.
++        renderStateNewCoroutine(
++            { state ->
++                RenderResult(
++                    converting = state.converting,
++                    hasInput = state.uri != null,
++                    displayText = state.textMode,
++                    asciiArt = state.asciiArt,
++                    asciiArtText = state.asciiArtText,
++                    info = if (state.gridColumns > 0) {
++                        getString(
++                            R.string.image_ascii_act_info,
++                            state.sourceWidth,
++                            state.sourceHeight,
++                            state.gridColumns,
++                            state.gridRows,
++                            state.gridColumns * state.gridRows
++                        )
++                    } else {
++                        ""
++                    }
++                )
++            }
++        ) { result ->
++            viewBinding.loadingPb.visibility = if (result.converting) View.VISIBLE else View.GONE
++            viewBinding.emptyTv.visibility = if (!result.converting && !result.hasInput) View.VISIBLE else View.GONE
++            viewBinding.infoTv.text = result.info
++
++            val showText = result.displayText && !result.asciiArtText.isNullOrEmpty()
++            if (showText) {
++                if (viewBinding.asciiTextTv.text?.toString() != result.asciiArtText) {
++                    viewBinding.asciiTextTv.text = result.asciiArtText
++                }
++                viewBinding.asciiTextTv.visibility = View.VISIBLE
++                viewBinding.asciiArtHsv.visibility = View.GONE
++            } else {
++                viewBinding.asciiTextTv.visibility = View.GONE
++                viewBinding.asciiArtHsv.visibility = if (result.asciiArt != null) View.VISIBLE else View.GONE
++                if (result.asciiArt !== displayedBitmap) {
++                    viewBinding.asciiArtIv.setImageBitmap(result.asciiArt)
++                    displayedBitmap?.recycle()
++                    displayedBitmap = result.asciiArt
++                }
++            }
++        }
++    }
++
++    override fun onNewIntent(intent: Intent) {
++        super.onNewIntent(intent)
++        setIntent(intent)
++        val inputUri = intent.getInputPictureUri()
++        if (inputUri != null) {
++            updateState { it.copy(uri = inputUri, displayName = intent.getInputPictureName()) }
++        }
++    }
++
++    override fun onRequestPermissionsResult(
++        requestCode: Int,
++        permissions: Array<out String>,
++        grantResults: IntArray
++    ) {
++        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
++        if (requestCode == REQUEST_WRITE_EXTERNAL_STORAGE) {
++            val action = pendingWritePermissionAction
++            pendingWritePermissionAction = null
++            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
++                action?.invoke()
++            } else {
++                Toast.makeText(this, R.string.image_ascii_act_permission_denied, Toast.LENGTH_LONG).show()
++            }
++        }
++    }
++
++    override fun onDestroy() {
++        super.onDestroy()
++        displayedBitmap = null
++    }
++
++    private fun bindToolbar(viewBinding: ImageAsciiActivityBinding) {
++        viewBinding.toolBar.setNavigationOnClickListener { finish() }
++        val menu = viewBinding.toolBar.menu
++        menu.findItem(R.id.pick_image).setOnMenuItemClickListener {
++            try {
++                pickImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
++            } catch (e: Throwable) {
++                AppLog.e(TAG, "Open photo picker fail.", e)
++            }
++            true
++        }
++        menu.findItem(R.id.ascii_settings).setOnMenuItemClickListener {
++            viewBinding.settingsSv.visibility =
++                if (viewBinding.settingsSv.visibility == View.VISIBLE) View.GONE else View.VISIBLE
++            true
++        }
++        menu.findItem(R.id.save_png).setOnMenuItemClickListener {
++            saveAsciiArtPng()
++            true
++        }
++        menu.findItem(R.id.save_txt).setOnMenuItemClickListener {
++            saveAsciiArtText()
++            true
++        }
++        menu.findItem(R.id.copy_text).setOnMenuItemClickListener {
++            copyAsciiArtText()
++            true
++        }
++        menu.findItem(R.id.share_ascii).setOnMenuItemClickListener {
++            shareAsciiArt()
++            true
++        }
++    }
++
++    private fun bindSettings(viewBinding: ImageAsciiActivityBinding) {
++        val options = currentState().options
++
++        viewBinding.charReverseSw.isChecked = options.reverseChar
++        viewBinding.charReverseSw.setOnCheckedChangeListener { _, isChecked ->
++            applyOptions { it.copy(reverseChar = isChecked) }
++        }
++
++        viewBinding.colorReverseSw.isChecked = options.reverseColor
++        viewBinding.colorReverseSw.setOnCheckedChangeListener { _, isChecked ->
++            applyOptions { it.copy(reverseColor = isChecked) }
++        }
++
++        viewBinding.keepImageColorSw.isChecked = options.keepImageColor
++        viewBinding.keepImageColorSw.setOnCheckedChangeListener { _, isChecked ->
++            applyOptions { it.copy(keepImageColor = isChecked) }
++        }
++
++        viewBinding.monospaceSw.isChecked = options.useMonospaceFont
++        viewBinding.monospaceSw.setOnCheckedChangeListener { _, isChecked ->
++            applyOptions { it.copy(useMonospaceFont = isChecked) }
++        }
++
++        viewBinding.textModeSw.isChecked = currentState().textMode
++        viewBinding.textModeSw.setOnCheckedChangeListener { _, isChecked ->
++            updateState { it.copy(textMode = isChecked) }
++        }
++
++        viewBinding.charWidthSb.progress = options.charLineWidthInPercent()
++        viewBinding.charWidthTv.text =
++            getString(R.string.image_ascii_setting_char_width, options.charLineWidth)
++        viewBinding.charWidthSb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
++            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
++
++            override fun onStopTrackingTouch(seekBar: SeekBar?) {
++                val charLineWidth = AsciiArtOptions.percentToCharLineWidth(seekBar?.progress ?: 0)
++                applyOptions { it.copy(charLineWidth = charLineWidth) }
++            }
++
++            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
++                viewBinding.charWidthTv.text = getString(
++                    R.string.image_ascii_setting_char_width,
++                    AsciiArtOptions.percentToCharLineWidth(progress)
++                )
++            }
++        })
++
++        val colorFillRatePercent = (options.colorFillRate * 100.0f + 0.5f).toInt()
++        viewBinding.colorFillRateSb.progress = colorFillRatePercent
++        viewBinding.colorFillRateTv.text =
++            getString(R.string.image_ascii_setting_color_fill_rate, colorFillRatePercent)
++        viewBinding.colorFillRateSb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
++            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
++
++            override fun onStopTrackingTouch(seekBar: SeekBar?) {
++                val rate = (seekBar?.progress ?: 0).toFloat() / 100.0f
++                applyOptions { it.copy(colorFillRate = rate) }
++            }
++
++            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
++                viewBinding.colorFillRateTv.text =
++                    getString(R.string.image_ascii_setting_color_fill_rate, progress)
++            }
++        })
++
++        viewBinding.textRowsSb.progress = options.textAspectRatioInPercent()
++        viewBinding.textRowsTv.text =
++            getString(R.string.image_ascii_setting_text_rows, options.textAspectRatioInPercent())
++        viewBinding.textRowsSb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
++            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
++
++            override fun onStopTrackingTouch(seekBar: SeekBar?) {
++                val ratio = (seekBar?.progress ?: 0).toFloat() / 100.0f
++                applyOptions { it.copy(textAspectRatio = ratio) }
++            }
++
++            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
++                viewBinding.textRowsTv.text =
++                    getString(R.string.image_ascii_setting_text_rows, progress)
++            }
++        })
++
++        viewBinding.closeSettingsBtn.clicks(uiCoroutineScope) {
++            viewBinding.settingsSv.visibility = View.GONE
++        }
++    }
++
++    private fun applyOptions(update: (AsciiArtOptions) -> AsciiArtOptions) {
++        updateState { it.copy(options = update(it.options)) }
++    }
++
++    /**
++     * Convert [ConvertRequest.uri] to ascii art, the text result and the picture result are both
++     * rendered, so the user can copy/save/share the text even in text mode.
++     */
++    private suspend fun convert(request: ConvertRequest) {
++        val uri = request.uri ?: return
++        val context = applicationContext
++        updateState { it.copy(converting = true, error = null) }
++        var source: Bitmap? = null
++        try {
++            source = PictureDecoder.decode(context, uri, PictureDecoder.DEFAULT_MAX_SIZE)
++            val rotation = PictureDecoder.queryRotationDegrees(context, uri)
++            if (rotation != 0) {
++                val rotated = Bitmap.createBitmap(
++                    source,
++                    0,
++                    0,
++                    source.width,
++                    source.height,
++                    Matrix().apply { postRotate(rotation.toFloat()) },
++                    true
++                )
++                source.recycle()
++                source = rotated
++            }
++            val options = request.options
++            val grid = AsciiArtConverter.buildGrid(source, options)
++            val asciiArtText = AsciiArtConverter.renderText(source, options)
++            val asciiArt = AsciiArtConverter.renderImage(source, options)
++            val displayName = currentState().displayName ?: PictureDecoder.queryDisplayName(context, uri)
++            savedAsciiArt = null
++            updateState {
++                it.copy(
++                    converting = false,
++                    displayName = displayName,
++                    asciiArt = asciiArt,
++                    asciiArtText = asciiArtText,
++                    sourceWidth = source.width,
++                    sourceHeight = source.height,
++                    gridColumns = grid.columns,
++                    gridRows = grid.rows,
++                    error = null
++                )
++            }
++            AppLog.d(TAG, "Convert picture success: grid=${grid.columns}x${grid.rows}, chars=${grid.cellCount}")
++        } catch (e: Throwable) {
++            AppLog.e(TAG, "Convert picture fail: uri=$uri", e)
++            updateState {
++                it.copy(
++                    converting = false,
++                    error = getString(
++                        R.string.image_ascii_act_convert_error,
++                        e.message ?: e.javaClass.simpleName
++                    )
++                )
++            }
++        } finally {
++            source?.recycle()
++        }
++    }
++
++    private fun saveAsciiArtPng() {
++        val state = currentState()
++        val asciiArt = state.asciiArt
++        if (asciiArt == null) {
++            Toast.makeText(this, R.string.image_ascii_act_no_text, Toast.LENGTH_SHORT).show()
++            return
++        }
++        withWritePermission {
++            val baseName = state.displayName ?: DEFAULT_BASE_NAME
++            dataCoroutineScope.launch {
++                try {
++                    val saved = AsciiArtExporter.savePng(applicationContext, asciiArt, baseName)
++                    savedAsciiArt = saved
++                    withContext(Dispatchers.Main) {
++                        Toast.makeText(
++                            this@ImageAsciiActivity,
++                            getString(R.string.image_ascii_act_saved, saved.readablePath),
++                            Toast.LENGTH_LONG
++                        ).show()
++                    }
++                } catch (e: Throwable) {
++                    AppLog.e(TAG, "Save ascii art png fail.", e)
++                    withContext(Dispatchers.Main) {
++                        Toast.makeText(
++                            this@ImageAsciiActivity,
++                            getString(R.string.image_ascii_act_save_error, e.message ?: e.javaClass.simpleName),
++                            Toast.LENGTH_LONG
++                        ).show()
++                    }
++                }
++            }
++        }
++    }
++
++    private fun saveAsciiArtText() {
++        val state = currentState()
++        val asciiArtText = state.asciiArtText
++        if (asciiArtText.isNullOrEmpty()) {
++            Toast.makeText(this, R.string.image_ascii_act_no_text, Toast.LENGTH_SHORT).show()
++            return
++        }
++        withWritePermission {
++            val baseName = state.displayName ?: DEFAULT_BASE_NAME
++            dataCoroutineScope.launch {
++                try {
++                    val saved = AsciiArtExporter.saveText(applicationContext, asciiArtText, baseName)
++                    withContext(Dispatchers.Main) {
++                        Toast.makeText(
++                            this@ImageAsciiActivity,
++                            getString(R.string.image_ascii_act_saved, saved.readablePath),
++                            Toast.LENGTH_LONG
++                        ).show()
++                    }
++                } catch (e: Throwable) {
++                    AppLog.e(TAG, "Save ascii art text fail.", e)
++                    withContext(Dispatchers.Main) {
++                        Toast.makeText(
++                            this@ImageAsciiActivity,
++                            getString(R.string.image_ascii_act_save_error, e.message ?: e.javaClass.simpleName),
++                            Toast.LENGTH_LONG
++                        ).show()
++                    }
++                }
++            }
++        }
++    }
++
++    private fun copyAsciiArtText() {
++        val asciiArtText = currentState().asciiArtText
++        if (asciiArtText.isNullOrEmpty()) {
++            Toast.makeText(this, R.string.image_ascii_act_no_text, Toast.LENGTH_SHORT).show()
++            return
++        }
++        try {
++            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
++            clipboard.setPrimaryClip(
++                ClipData.newPlainText(getString(R.string.image_ascii_act_title), asciiArtText)
++            )
++            Toast.makeText(this, R.string.image_ascii_act_copy_success, Toast.LENGTH_SHORT).show()
++        } catch (e: Throwable) {
++            AppLog.e(TAG, "Copy ascii art text fail.", e)
++        }
++    }
++
++    private fun shareAsciiArt() {
++        val state = currentState()
++        val asciiArt = state.asciiArt
++        if (asciiArt == null) {
++            Toast.makeText(this, R.string.image_ascii_act_no_text, Toast.LENGTH_SHORT).show()
++            return
++        }
++        withWritePermission {
++            val baseName = state.displayName ?: DEFAULT_BASE_NAME
++            dataCoroutineScope.launch {
++                try {
++                    val saved = savedAsciiArt ?: AsciiArtExporter.savePng(applicationContext, asciiArt, baseName)
++                        .also { savedAsciiArt = it }
++                    withContext(Dispatchers.Main) {
++                        try {
++                            startActivity(
++                                Intent.createChooser(
++                                    AsciiArtExporter.createShareIntent(saved),
++                                    getString(R.string.image_ascii_menu_share)
++                                )
++                            )
++                        } catch (e: Throwable) {
++                            AppLog.e(TAG, "Share ascii art fail.", e)
++                        }
++                    }
++                } catch (e: Throwable) {
++                    AppLog.e(TAG, "Save ascii art png for sharing fail.", e)
++                    withContext(Dispatchers.Main) {
++                        Toast.makeText(
++                            this@ImageAsciiActivity,
++                            getString(R.string.image_ascii_act_save_error, e.message ?: e.javaClass.simpleName),
++                            Toast.LENGTH_LONG
++                        ).show()
++                    }
++                }
++            }
++        }
++    }
++
++    /**
++     * Android 10+ saves files with MediaStore and needs no permission, Android 9- needs
++     * [Manifest.permission.WRITE_EXTERNAL_STORAGE].
++     */
++    private fun withWritePermission(action: () -> Unit) {
++        if (!AsciiArtExporter.needsWritePermission()) {
++            action()
++            return
++        }
++        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
++            PackageManager.PERMISSION_GRANTED
++        if (granted) {
++            action()
++        } else {
++            pendingWritePermissionAction = action
++            ActivityCompat.requestPermissions(
++                this,
++                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
++                REQUEST_WRITE_EXTERNAL_STORAGE
++            )
++        }
++    }
++
++    companion object {
++
++        private const val TAG = "ImageAsciiActivity"
++
++        private const val REQUEST_WRITE_EXTERNAL_STORAGE = 1001
++
++        private const val DEFAULT_BASE_NAME = "ascii_art"
++
++        private const val INPUT_PICTURE_URI_EXTRA = "input_picture_uri_extra"
++        private const val INPUT_PICTURE_NAME_EXTRA = "input_picture_name_extra"
++
++        private data class ConvertRequest(
++            val uri: Uri?,
++            val options: AsciiArtOptions
++        )
++
++        private data class RenderResult(
++            val converting: Boolean,
++            val hasInput: Boolean,
++            val displayText: Boolean,
++            val asciiArt: Bitmap?,
++            val asciiArtText: String?,
++            val info: String
++        )
++
++        /**
++         * Open this activity with a picture.
++         */
++        fun createIntent(context: Context, uri: Uri, displayName: String?): Intent {
++            return Intent(context, ImageAsciiActivity::class.java).apply {
++                putExtra(INPUT_PICTURE_URI_EXTRA, uri.toString())
++                if (displayName != null) {
++                    putExtra(INPUT_PICTURE_NAME_EXTRA, displayName)
++                }
++            }
++        }
++
++        private fun Intent.getInputPictureUri(): Uri? {
++            val intentData = data
++            if (intentData != null && action == Intent.ACTION_VIEW) {
++                return intentData
++            }
++            if (action == Intent.ACTION_SEND) {
++                val streamUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
++                    getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
++                } else {
++                    @Suppress("DEPRECATION")
++                    getParcelableExtra(Intent.EXTRA_STREAM)
++                }
++                if (streamUri != null) {
++                    return streamUri
++                }
++            }
++            val clipUri = clipData?.let { if (it.itemCount > 0) it.getItemAt(0).uri else null }
++            if (clipUri != null) {
++                return clipUri
++            }
++            val extraUri = getStringExtra(INPUT_PICTURE_URI_EXTRA)
++            return if (extraUri.isNullOrBlank()) null else Uri.parse(extraUri)
++        }
++
++        private fun Intent.getInputPictureName(): String? = getStringExtra(INPUT_PICTURE_NAME_EXTRA)
++
++        data class State(
++            val uri: Uri? = null,
++            val displayName: String? = null,
++            val options: AsciiArtOptions = AsciiArtOptions(),
++            val textMode: Boolean = false,
++            val converting: Boolean = false,
++            val asciiArt: Bitmap? = null,
++            val asciiArtText: String? = null,
++            val sourceWidth: Int = 0,
++            val sourceHeight: Int = 0,
++            val gridColumns: Int = 0,
++            val gridRows: Int = 0,
++            val error: String? = null
++        )
++    }
++}
+diff --git a/app/src/main/java/com/tans/tasciiartplayer/ui/main/ImagesFragment.kt b/app/src/main/java/com/tans/tasciiartplayer/ui/main/ImagesFragment.kt
+new file mode 100644
+index 0000000..a58df4d
+--- /dev/null
++++ b/app/src/main/java/com/tans/tasciiartplayer/ui/main/ImagesFragment.kt
+@@ -0,0 +1,121 @@
++package com.tans.tasciiartplayer.ui.main
++
++import android.view.View
++import androidx.core.view.ViewCompat
++import androidx.core.view.WindowInsetsCompat
++import com.bumptech.glide.Glide
++import com.tans.tasciiartplayer.R
++import com.tans.tasciiartplayer.databinding.ImageItemLayoutBinding
++import com.tans.tasciiartplayer.databinding.ImagesFragmentBinding
++import com.tans.tasciiartplayer.image.ImageManager
++import com.tans.tasciiartplayer.image.ImageModel
++import com.tans.tasciiartplayer.ui.imageascii.ImageAsciiActivity
++import com.tans.tuiutils.adapter.impl.builders.SimpleAdapterBuilderImpl
++import com.tans.tuiutils.adapter.impl.databinders.DataBinderImpl
++import com.tans.tuiutils.adapter.impl.datasources.FlowDataSourceImpl
++import com.tans.tuiutils.adapter.impl.viewcreatators.SingleItemViewCreatorImpl
++import com.tans.tuiutils.dialog.dp2px
++import com.tans.tuiutils.fragment.BaseCoroutineStateFragment
++import com.tans.tuiutils.view.clicks
++import com.tans.tuiutils.view.refreshes
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.FlowPreview
++import kotlinx.coroutines.flow.debounce
++import kotlinx.coroutines.flow.distinctUntilChanged
++import kotlinx.coroutines.flow.flowOn
++import kotlinx.coroutines.flow.map
++import kotlinx.coroutines.launch
++
++/**
++ * The pictures of the device, click one to convert it to ascii art.
++ */
++class ImagesFragment : BaseCoroutineStateFragment<ImagesFragment.Companion.State>(State()) {
++
++    override val layoutId: Int = R.layout.images_fragment
++
++    override fun CoroutineScope.firstLaunchInitDataCoroutine() {
++
++        launch {
++            ImageManager.refreshMediaStoreImages()
++        }
++
++        launch {
++            ImageManager.stateFlow
++                .map { it.images.sortedByDescending { image -> image.mediaStoreImage.dateModified } }
++                .distinctUntilChanged()
++                .collect { images -> updateState { it.copy(images = images) } }
++        }
++    }
++
++    @OptIn(FlowPreview::class)
++    override fun CoroutineScope.bindContentViewCoroutine(contentView: View) {
++        val viewBinding = ImagesFragmentBinding.bind(contentView)
++        viewBinding.refreshLayout.refreshes(this, Dispatchers.IO) {
++            ImageManager.refreshMediaStoreImages()
++        }
++        val glideLoadManager = Glide.with(this@ImagesFragment)
++        val imageAdapterBuilder = SimpleAdapterBuilderImpl(
++            itemViewCreator = SingleItemViewCreatorImpl(R.layout.image_item_layout),
++            dataSource = FlowDataSourceImpl(
++                dataFlow = stateFlow().map { it.images },
++                getDataItemIdParam = { d, _ -> d.id },
++                areDataItemsTheSameParam = { d1, d2 -> d1.id == d2.id },
++                getDataItemsChangePayloadParam = { d1, d2 ->
++                    if (d1.mediaStoreImage == d2.mediaStoreImage) Unit else null
++                }
++            ),
++            dataBinder = DataBinderImpl<ImageModel> { image, view, _ ->
++                val itemViewBinding = ImageItemLayoutBinding.bind(view)
++                itemViewBinding.imageTitleTv.text = image.displayName
++            }.addPayloadDataBinder(Unit) { image, view, _ ->
++                val itemViewBinding = ImageItemLayoutBinding.bind(view)
++                glideLoadManager
++                    .load(image.mediaStoreImage.uri)
++                    .error(R.drawable.icon_image)
++                    .into(itemViewBinding.imageIv)
++                itemViewBinding.root.clicks(this) {
++                    startActivity(
++                        ImageAsciiActivity.createIntent(
++                            context = requireActivity(),
++                            uri = image.mediaStoreImage.uri,
++                            displayName = image.displayName
++                        )
++                    )
++                }
++            }
++        )
++
++        viewBinding.imagesRv.adapter = imageAdapterBuilder.build()
++
++        launch {
++            stateFlow()
++                .map { it.images.isEmpty() }
++                .debounce(200L)
++                .distinctUntilChanged()
++                .flowOn(Dispatchers.IO)
++                .collect {
++                    if (it) {
++                        viewBinding.emptyTv.visibility = View.VISIBLE
++                        viewBinding.imagesRv.visibility = View.INVISIBLE
++                    } else {
++                        viewBinding.emptyTv.visibility = View.INVISIBLE
++                        viewBinding.imagesRv.visibility = View.VISIBLE
++                    }
++                }
++        }
++
++        ViewCompat.setOnApplyWindowInsetsListener(viewBinding.imagesRv) { v, insets ->
++            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
++            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, systemBars.bottom + requireContext().dp2px(8))
++            insets
++        }
++    }
++
++    companion object {
++
++        data class State(
++            val images: List<ImageModel> = emptyList()
++        )
++    }
++}
+diff --git a/app/src/main/java/com/tans/tasciiartplayer/ui/main/MainActivity.kt b/app/src/main/java/com/tans/tasciiartplayer/ui/main/MainActivity.kt
+index cdf6b5f..813044c 100644
+--- a/app/src/main/java/com/tans/tasciiartplayer/ui/main/MainActivity.kt
++++ b/app/src/main/java/com/tans/tasciiartplayer/ui/main/MainActivity.kt
+@@ -8,6 +8,8 @@ import android.os.Environment
+ import android.provider.Settings
+ import android.view.View
+ import android.widget.Toast
++import androidx.activity.result.PickVisualMediaRequest
++import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.core.view.ViewCompat
+ import androidx.core.view.WindowInsetsCompat
+ import androidx.fragment.app.Fragment
+@@ -18,6 +20,7 @@ import com.tans.tasciiartplayer.databinding.MainActivityBinding
+ import com.tans.tasciiartplayer.ui.audioplayer.AlbumsDialog
+ import com.tans.tasciiartplayer.ui.audioplayer.ArtistsDialog
+ import com.tans.tasciiartplayer.ui.audioplayer.AudioListDialog
++import com.tans.tasciiartplayer.ui.imageascii.ImageAsciiActivity
+ import com.tans.tasciiartplayer.ui.main.iptv.IptvFragment
+ import com.tans.tasciiartplayer.ui.videoplayer.VideoPlayerActivity
+ import com.tans.tuiutils.activity.BaseCoroutineStateActivity
+@@ -38,10 +41,21 @@ class MainActivity : BaseCoroutineStateActivity<MainActivity.Companion.State>(St
+         mapOf(
+             TabType.Videos to VideosFragment(),
+             TabType.Audios to AudiosFragment(),
++            TabType.Images to ImagesFragment(),
+             TabType.IPTV to IptvFragment()
+         )
+     }
+ 
++    /**
++     * Pick a picture out of the device and convert it to ascii art, this does not need any
++     * storage permission on Android 13+.
++     */
++    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
++        if (uri != null) {
++            startActivity(ImageAsciiActivity.createIntent(this, uri, displayName = null))
++        }
++    }
++
+     override fun CoroutineScope.firstLaunchInitDataCoroutine() {  }
+ 
+     override fun CoroutineScope.bindContentViewCoroutine(contentView: View) {
+@@ -49,6 +63,7 @@ class MainActivity : BaseCoroutineStateActivity<MainActivity.Companion.State>(St
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+             permissionsNeed.add(Manifest.permission.READ_MEDIA_AUDIO)
+             permissionsNeed.add(Manifest.permission.READ_MEDIA_VIDEO)
++            permissionsNeed.add(Manifest.permission.READ_MEDIA_IMAGES)
+             permissionsNeed.add(Manifest.permission.POST_NOTIFICATIONS)
+             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                 permissionsNeed.add(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+@@ -79,6 +94,7 @@ class MainActivity : BaseCoroutineStateActivity<MainActivity.Companion.State>(St
+                     when (tab?.position) {
+                         TabType.Videos.ordinal -> updateState { it.copy(selectedTab = TabType.Videos) }
+                         TabType.Audios.ordinal -> updateState { it.copy(selectedTab = TabType.Audios) }
++                        TabType.Images.ordinal -> updateState { it.copy(selectedTab = TabType.Images) }
+                         TabType.IPTV.ordinal -> updateState { it.copy(selectedTab = TabType.IPTV) }
+                     }
+                 }
+@@ -89,10 +105,16 @@ class MainActivity : BaseCoroutineStateActivity<MainActivity.Companion.State>(St
+                 tab.text = when (TabType.entries[position]) {
+                     TabType.Videos -> getString(R.string.main_act_videos_tab)
+                     TabType.Audios -> getString(R.string.main_act_audios_tab)
++                    TabType.Images -> getString(R.string.main_act_images_tab)
+                     TabType.IPTV -> getString(R.string.main_act_iptv_tab)
+                 }
+             }.attach()
+ 
++            viewBinding.toolBar.menu.findItem(R.id.pick_image).setOnMenuItemClickListener {
++                pickImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
++                true
++            }
++
+             viewBinding.toolBar.menu.findItem(R.id.app_settings).setOnMenuItemClickListener {
+                 val settingsDialog = AppSettingsDialog()
+                 settingsDialog.showSafe(supportFragmentManager, "AppSettingsDialog#${System.currentTimeMillis()}")
+@@ -155,7 +177,7 @@ class MainActivity : BaseCoroutineStateActivity<MainActivity.Companion.State>(St
+ 
+     companion object {
+ 
+-        enum class TabType { Videos, Audios, IPTV }
++        enum class TabType { Videos, Audios, Images, IPTV }
+ 
+         data class State(
+             val selectedTab: TabType = TabType.Videos
+diff --git a/app/src/main/res/drawable/icon_back.xml b/app/src/main/res/drawable/icon_back.xml
+new file mode 100644
+index 0000000..e0cc27b
+--- /dev/null
++++ b/app/src/main/res/drawable/icon_back.xml
+@@ -0,0 +1,9 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="960"
++    android:viewportHeight="960">
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M560,720L320,480L560,240L616,296L432,480L616,664L560,720Z"/>
++</vector>
+diff --git a/app/src/main/res/drawable/icon_copy.xml b/app/src/main/res/drawable/icon_copy.xml
+new file mode 100644
+index 0000000..cc899d6
+--- /dev/null
++++ b/app/src/main/res/drawable/icon_copy.xml
+@@ -0,0 +1,16 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="960"
++    android:viewportHeight="960">
++  <path
++      android:strokeColor="@color/cyan_400"
++      android:strokeWidth="50"
++      android:strokeLineJoin="round"
++      android:pathData="M410,230 H780 V690 H410 Z"/>
++  <path
++      android:strokeColor="@color/cyan_400"
++      android:strokeWidth="50"
++      android:strokeLineJoin="round"
++      android:pathData="M230,770 V290 H600"/>
++</vector>
+diff --git a/app/src/main/res/drawable/icon_image.xml b/app/src/main/res/drawable/icon_image.xml
+new file mode 100644
+index 0000000..93b7f8c
+--- /dev/null
++++ b/app/src/main/res/drawable/icon_image.xml
+@@ -0,0 +1,17 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="960"
++    android:viewportHeight="960">
++  <path
++      android:strokeColor="@color/cyan_400"
++      android:strokeWidth="40"
++      android:strokeLineJoin="round"
++      android:pathData="M250,690 H710 V270 H250 Z"/>
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M310,610 L420,450 L480,530 L560,410 L670,610 Z"/>
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M330,370 A40,40 0 1,1 410,370 A40,40 0 1,1 330,370 Z"/>
++</vector>
+diff --git a/app/src/main/res/drawable/icon_save.xml b/app/src/main/res/drawable/icon_save.xml
+new file mode 100644
+index 0000000..abf3de2
+--- /dev/null
++++ b/app/src/main/res/drawable/icon_save.xml
+@@ -0,0 +1,12 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="960"
++    android:viewportHeight="960">
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M450,120 H510 V390 L620,390 L480,560 L340,390 L450,390 Z"/>
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M240,650 H720 V710 H240 Z"/>
++</vector>
+diff --git a/app/src/main/res/drawable/icon_share.xml b/app/src/main/res/drawable/icon_share.xml
+new file mode 100644
+index 0000000..ea91727
+--- /dev/null
++++ b/app/src/main/res/drawable/icon_share.xml
+@@ -0,0 +1,23 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="960"
++    android:viewportHeight="960">
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M700,130 A70,70 0 1,1 840,130 A70,70 0 1,1 700,130 Z"/>
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M120,410 A70,70 0 1,1 260,410 A70,70 0 1,1 120,410 Z"/>
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M700,690 A70,70 0 1,1 840,690 A70,70 0 1,1 700,690 Z"/>
++  <path
++      android:strokeColor="@color/cyan_400"
++      android:strokeWidth="50"
++      android:pathData="M250,380 L710,180"/>
++  <path
++      android:strokeColor="@color/cyan_400"
++      android:strokeWidth="50"
++      android:pathData="M250,440 L710,640"/>
++</vector>
+diff --git a/app/src/main/res/drawable/icon_text.xml b/app/src/main/res/drawable/icon_text.xml
+new file mode 100644
+index 0000000..c057dcb
+--- /dev/null
++++ b/app/src/main/res/drawable/icon_text.xml
+@@ -0,0 +1,15 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="960"
++    android:viewportHeight="960">
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M240,240 H720 V300 H240 Z"/>
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M240,400 H720 V460 H240 Z"/>
++  <path
++      android:fillColor="@color/cyan_400"
++      android:pathData="M240,560 H560 V620 H240 Z"/>
++</vector>
+diff --git a/app/src/main/res/layout/image_ascii_activity.xml b/app/src/main/res/layout/image_ascii_activity.xml
+new file mode 100644
+index 0000000..128017a
+--- /dev/null
++++ b/app/src/main/res/layout/image_ascii_activity.xml
+@@ -0,0 +1,300 @@
++<?xml version="1.0" encoding="utf-8"?>
++<androidx.constraintlayout.widget.ConstraintLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:id="@+id/root_layout"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:background="@color/black"
++    tools:context=".ui.imageascii.ImageAsciiActivity">
++
++    <androidx.appcompat.widget.Toolbar
++        android:id="@+id/tool_bar"
++        android:layout_width="0dp"
++        android:layout_height="wrap_content"
++        android:background="@color/black_transparent2"
++        android:minHeight="?attr/actionBarSize"
++        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
++        app:navigationIcon="@drawable/icon_back"
++        app:title="@string/image_ascii_act_title"
++        app:titleTextColor="@color/white"
++        app:menu="@menu/image_ascii_menu"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintTop_toTopOf="parent"/>
++
++    <ScrollView
++        android:id="@+id/content_sv"
++        android:layout_width="0dp"
++        android:layout_height="0dp"
++        android:fillViewport="true"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintTop_toBottomOf="@id/tool_bar"
++        app:layout_constraintBottom_toTopOf="@id/info_tv">
++
++        <FrameLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content">
++
++            <HorizontalScrollView
++                android:id="@+id/ascii_art_hsv"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:visibility="gone"
++                tools:visibility="visible">
++
++                <ImageView
++                    android:id="@+id/ascii_art_iv"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:adjustViewBounds="true"
++                    tools:src="@drawable/icon_image"/>
++
++            </HorizontalScrollView>
++
++            <TextView
++                android:id="@+id/ascii_text_tv"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:padding="6dp"
++                android:textColor="@color/white"
++                android:textSize="6sp"
++                android:typeface="monospace"
++                android:lineSpacingMultiplier="0.9"
++                android:visibility="gone"
++                tools:visibility="visible"
++                tools:text="@@@###***+++---:::"/>
++
++        </FrameLayout>
++
++    </ScrollView>
++
++    <TextView
++        android:id="@+id/empty_tv"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:layout_marginStart="24dp"
++        android:layout_marginEnd="24dp"
++        android:gravity="center"
++        android:text="@string/image_ascii_act_empty"
++        android:textColor="@color/gray_400"
++        android:textSize="14sp"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintTop_toTopOf="@id/content_sv"
++        app:layout_constraintBottom_toBottomOf="@id/content_sv"/>
++
++    <ProgressBar
++        android:id="@+id/loading_pb"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:visibility="gone"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintTop_toTopOf="@id/content_sv"
++        app:layout_constraintBottom_toBottomOf="@id/content_sv"
++        tools:visibility="visible"/>
++
++    <TextView
++        android:id="@+id/info_tv"
++        android:layout_width="0dp"
++        android:layout_height="wrap_content"
++        android:background="@color/black_transparent2"
++        android:paddingStart="10dp"
++        android:paddingEnd="10dp"
++        android:paddingTop="6dp"
++        android:paddingBottom="6dp"
++        android:textColor="@color/cyan_400"
++        android:textSize="11sp"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintBottom_toBottomOf="parent"
++        tools:text="1080 x 1920 px | Grid 128 x 227 | 29056 chars"/>
++
++    <androidx.core.widget.NestedScrollView
++        android:id="@+id/settings_sv"
++        android:layout_width="0dp"
++        android:layout_height="wrap_content"
++        android:background="@color/black_transparent2"
++        android:visibility="gone"
++        app:layout_constrainedHeight="true"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintTop_toBottomOf="@id/tool_bar"
++        app:layout_constraintBottom_toBottomOf="parent"
++        tools:visibility="visible">
++
++        <LinearLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:orientation="vertical"
++            android:padding="10dp">
++
++            <TextView
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="@string/image_ascii_setting_title"
++                android:textColor="@color/white"
++                android:textSize="14sp"/>
++
++            <View
++                android:layout_width="match_parent"
++                android:layout_height="1dp"
++                android:layout_marginTop="6dp"
++                android:background="@color/white"/>
++
++            <LinearLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:layout_marginTop="8dp"
++                android:gravity="center_vertical"
++                android:orientation="horizontal">
++
++                <TextView
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:text="@string/image_ascii_setting_char_reverse"
++                    android:textColor="@color/white"/>
++
++                <androidx.appcompat.widget.SwitchCompat
++                    android:id="@+id/char_reverse_sw"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"/>
++
++            </LinearLayout>
++
++            <LinearLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:gravity="center_vertical"
++                android:orientation="horizontal">
++
++                <TextView
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:text="@string/image_ascii_setting_color_reverse"
++                    android:textColor="@color/white"/>
++
++                <androidx.appcompat.widget.SwitchCompat
++                    android:id="@+id/color_reverse_sw"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"/>
++
++            </LinearLayout>
++
++            <LinearLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:gravity="center_vertical"
++                android:orientation="horizontal">
++
++                <TextView
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:text="@string/image_ascii_setting_keep_image_color"
++                    android:textColor="@color/white"/>
++
++                <androidx.appcompat.widget.SwitchCompat
++                    android:id="@+id/keep_image_color_sw"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"/>
++
++            </LinearLayout>
++
++            <LinearLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:gravity="center_vertical"
++                android:orientation="horizontal">
++
++                <TextView
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:text="@string/image_ascii_setting_monospace"
++                    android:textColor="@color/white"/>
++
++                <androidx.appcompat.widget.SwitchCompat
++                    android:id="@+id/monospace_sw"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"/>
++
++            </LinearLayout>
++
++            <LinearLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:gravity="center_vertical"
++                android:orientation="horizontal">
++
++                <TextView
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:text="@string/image_ascii_setting_text_mode"
++                    android:textColor="@color/white"/>
++
++                <androidx.appcompat.widget.SwitchCompat
++                    android:id="@+id/text_mode_sw"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"/>
++
++            </LinearLayout>
++
++            <TextView
++                android:id="@+id/char_width_tv"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginTop="8dp"
++                android:textColor="@color/white"
++                tools:text="Char Width: 128"/>
++
++            <androidx.appcompat.widget.AppCompatSeekBar
++                android:id="@+id/char_width_sb"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:max="100"
++                android:progress="47"/>
++
++            <TextView
++                android:id="@+id/color_fill_rate_tv"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:textColor="@color/white"
++                tools:text="Image Color Fill Rate: 0"/>
++
++            <androidx.appcompat.widget.AppCompatSeekBar
++                android:id="@+id/color_fill_rate_sb"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:max="100"
++                android:progress="0"/>
++
++            <TextView
++                android:id="@+id/text_rows_tv"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:textColor="@color/white"
++                tools:text="Text Rows Ratio: 50"/>
++
++            <androidx.appcompat.widget.AppCompatSeekBar
++                android:id="@+id/text_rows_sb"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:max="100"
++                android:progress="50"/>
++
++            <com.google.android.material.button.MaterialButton
++                android:id="@+id/close_settings_btn"
++                style="@style/Widget.Material3.Button.TextButton"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_gravity="end"
++                android:text="@string/image_ascii_setting_close"
++                android:textColor="@color/cyan_400"/>
++
++        </LinearLayout>
++
++    </androidx.core.widget.NestedScrollView>
++
++</androidx.constraintlayout.widget.ConstraintLayout>
+diff --git a/app/src/main/res/layout/image_item_layout.xml b/app/src/main/res/layout/image_item_layout.xml
+new file mode 100644
+index 0000000..adb7c97
+--- /dev/null
++++ b/app/src/main/res/layout/image_item_layout.xml
+@@ -0,0 +1,57 @@
++<?xml version="1.0" encoding="utf-8"?>
++<androidx.cardview.widget.CardView android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:layout_marginStart="3dp"
++    android:layout_marginEnd="3dp"
++    android:layout_marginTop="3dp"
++    android:layout_marginBottom="3dp"
++    android:foreground="?attr/selectableItemBackgroundBorderless"
++    app:cardCornerRadius="4dp"
++    app:cardBackgroundColor="@color/white"
++    app:cardElevation="1dp"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <androidx.constraintlayout.widget.ConstraintLayout
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content">
++
++        <ImageView
++            android:id="@+id/image_iv"
++            android:layout_width="match_parent"
++            android:layout_height="0dp"
++            android:scaleType="centerCrop"
++            android:src="@drawable/icon_image"
++            app:layout_constraintDimensionRatio="1:1"
++            app:layout_constraintStart_toStartOf="parent"
++            app:layout_constraintEnd_toEndOf="parent"
++            app:layout_constraintTop_toTopOf="parent"/>
++
++        <TextView
++            android:id="@+id/image_title_tv"
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_marginStart="3dp"
++            android:layout_marginEnd="3dp"
++            android:layout_marginTop="2dp"
++            android:layout_marginBottom="5dp"
++            android:lines="2"
++            android:ellipsize="end"
++            android:lineSpacingExtra="1dp"
++            android:textSize="10sp"
++            android:textColor="@color/gray_900"
++            android:gravity="start"
++            app:autoSizeTextType="uniform"
++            app:autoSizeMinTextSize="8sp"
++            app:autoSizeMaxTextSize="10sp"
++            app:autoSizeStepGranularity="1sp"
++            app:layout_constraintStart_toStartOf="parent"
++            app:layout_constraintEnd_toEndOf="parent"
++            app:layout_constraintTop_toBottomOf="@id/image_iv"
++            app:layout_constraintBottom_toBottomOf="parent"
++            tools:text="IMG_20240915_123456.jpg"/>
++
++    </androidx.constraintlayout.widget.ConstraintLayout>
++
++</androidx.cardview.widget.CardView>
+diff --git a/app/src/main/res/layout/images_fragment.xml b/app/src/main/res/layout/images_fragment.xml
+new file mode 100644
+index 0000000..b4db194
+--- /dev/null
++++ b/app/src/main/res/layout/images_fragment.xml
+@@ -0,0 +1,49 @@
++<?xml version="1.0" encoding="utf-8"?>
++<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    xmlns:tools="http://schemas.android.com/tools">
++
++    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
++        android:id="@+id/refresh_layout"
++        android:layout_width="0dp"
++        android:layout_height="0dp"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintTop_toTopOf="parent"
++        app:layout_constraintBottom_toBottomOf="parent">
++
++        <FrameLayout
++            android:layout_width="match_parent"
++            android:layout_height="match_parent">
++
++            <androidx.recyclerview.widget.RecyclerView
++                android:id="@+id/images_rv"
++                android:layout_width="match_parent"
++                android:layout_height="match_parent"
++                android:clipToPadding="false"
++                android:layout_marginStart="8dp"
++                android:layout_marginEnd="8dp"
++                android:paddingTop="8dp"
++                android:scrollbars="vertical"
++                app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
++                app:spanCount="3"
++                tools:listitem="@layout/image_item_layout"
++                tools:visibility="gone" />
++
++            <TextView
++                android:id="@+id/empty_tv"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_gravity="center"
++                android:text="@string/images_fgt_no_image"
++                android:textSize="14sp"
++                android:gravity="center"
++                android:textColor="@color/gray_900" />
++
++        </FrameLayout>
++
++    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
++
++</androidx.constraintlayout.widget.ConstraintLayout>
+diff --git a/app/src/main/res/menu/app_settings_menu.xml b/app/src/main/res/menu/app_settings_menu.xml
+index 223b3ab..340b3c9 100644
+--- a/app/src/main/res/menu/app_settings_menu.xml
++++ b/app/src/main/res/menu/app_settings_menu.xml
+@@ -1,6 +1,11 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+ 
++    <item android:id="@+id/pick_image"
++        android:title="@string/image_ascii_menu_pick_image"
++        android:icon="@drawable/icon_image"
++        app:showAsAction="ifRoom"/>
++
+     <item android:id="@+id/media_link"
+         android:title="@string/media_link_dialog_title"
+         android:icon="@drawable/icon_media_link"
+diff --git a/app/src/main/res/menu/image_ascii_menu.xml b/app/src/main/res/menu/image_ascii_menu.xml
+new file mode 100644
+index 0000000..90c98cd
+--- /dev/null
++++ b/app/src/main/res/menu/image_ascii_menu.xml
+@@ -0,0 +1,35 @@
++<?xml version="1.0" encoding="utf-8"?>
++<menu xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto">
++
++    <item android:id="@+id/pick_image"
++        android:title="@string/image_ascii_menu_pick_image"
++        android:icon="@drawable/icon_image"
++        app:showAsAction="ifRoom"/>
++
++    <item android:id="@+id/ascii_settings"
++        android:title="@string/image_ascii_menu_settings"
++        android:icon="@drawable/icon_settings"
++        app:showAsAction="ifRoom"/>
++
++    <item android:id="@+id/save_png"
++        android:title="@string/image_ascii_menu_save_png"
++        android:icon="@drawable/icon_save"
++        app:showAsAction="never"/>
++
++    <item android:id="@+id/save_txt"
++        android:title="@string/image_ascii_menu_save_txt"
++        android:icon="@drawable/icon_text"
++        app:showAsAction="never"/>
++
++    <item android:id="@+id/copy_text"
++        android:title="@string/image_ascii_menu_copy_text"
++        android:icon="@drawable/icon_copy"
++        app:showAsAction="never"/>
++
++    <item android:id="@+id/share_ascii"
++        android:title="@string/image_ascii_menu_share"
++        android:icon="@drawable/icon_share"
++        app:showAsAction="never"/>
++
++</menu>
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+index a6c31cd..dfc8f01 100644
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -55,6 +55,7 @@
+     <!--region MainActivity -->
+     <string name="main_act_videos_tab">VIDEOS</string>
+     <string name="main_act_audios_tab">AUDIOS</string>
++    <string name="main_act_images_tab">IMAGES</string>
+     <string name="main_act_iptv_tab">IPTV</string>
+     <string name="main_act_storage_permission_request_title">Request Permission</string>
+     <string name="main_act_storage_permission_request_body">tAsciiArtPlayer needs storage permission to scan new video and audio files.</string>
+@@ -92,6 +93,48 @@
+     <string name="audio_player_act_next_play">Next play: %s</string>
+     <!--endregion -->
+ 
++    <!--region ImagesFragment-->
++    <string name="images_fgt_no_image">No Image</string>
++    <!--endregion-->
++
++    <!--region ImageAsciiActivity-->
++    <string name="image_ascii_act_title">Ascii Art</string>
++    <string name="image_ascii_act_pick_image">Pick Image</string>
++    <string name="image_ascii_act_empty">Pick an image to convert it to ascii art.</string>
++    <string name="image_ascii_act_converting">Converting&#8230;</string>
++    <string name="image_ascii_act_info">%1$d x %2$d px  |  Grid %3$d x %4$d  |  %5$d chars</string>
++    <string name="image_ascii_act_decode_error">Load image fail, please pick another one.</string>
++    <string name="image_ascii_act_convert_error">Convert image fail: %1$s</string>
++    <string name="image_ascii_act_saved">Saved: %1$s</string>
++    <string name="image_ascii_act_save_error">Save fail: %1$s</string>
++    <string name="image_ascii_act_copy_success">Ascii art text is copied.</string>
++    <string name="image_ascii_act_no_text">Nothing to copy, please wait for the conversion.</string>
++    <string name="image_ascii_act_save_before_share">Please save the ascii art file before sharing it.</string>
++    <string name="image_ascii_act_permission_denied">Storage permission is needed to save files on Android 9 and lower.</string>
++    <!--endregion-->
++
++    <!--region ImageAsciiSettings-->
++    <string name="image_ascii_setting_title">Ascii Art Settings</string>
++    <string name="image_ascii_setting_char_width">Char Width: %1$d</string>
++    <string name="image_ascii_setting_color_fill_rate">Image Color Fill Rate: %1$d</string>
++    <string name="image_ascii_setting_text_rows">Text Rows Ratio: %1$d</string>
++    <string name="image_ascii_setting_char_reverse">Char Reverse: </string>
++    <string name="image_ascii_setting_color_reverse">Color Reverse: </string>
++    <string name="image_ascii_setting_keep_image_color">Keep Image Color: </string>
++    <string name="image_ascii_setting_monospace">Monospace Font: </string>
++    <string name="image_ascii_setting_text_mode">Text Mode: </string>
++    <string name="image_ascii_setting_close">CLOSE</string>
++    <!--endregion-->
++
++    <!--region ImageAsciiMenu-->
++    <string name="image_ascii_menu_pick_image">Pick Image</string>
++    <string name="image_ascii_menu_settings">Ascii Settings</string>
++    <string name="image_ascii_menu_save_png">Save Ascii Art Image</string>
++    <string name="image_ascii_menu_save_txt">Save Ascii Art Text</string>
++    <string name="image_ascii_menu_copy_text">Copy Ascii Art Text</string>
++    <string name="image_ascii_menu_share">Share Ascii Art</string>
++    <!--endregion-->
++
+     <!--region MediaLinkDialog-->
+     <string name="media_link_dialog_title">MediaLink</string>
+     <string name="media_link_dialog_input_hint">Input a media link.</string>

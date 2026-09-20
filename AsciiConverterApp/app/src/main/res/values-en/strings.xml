@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ASCII Image Converter</string>
+
+    <!-- Main -->
+    <string name="main_empty_title">No image yet</string>
+    <string name="main_empty_desc">Pick an image and turn it into ASCII art</string>
+    <string name="main_pick">Pick</string>
+    <string name="main_capture">Camera</string>
+    <string name="main_import">Import</string>
+    <string name="main_batch">Batch</string>
+    <string name="main_save_png">Save</string>
+    <string name="main_save_txt">Text</string>
+    <string name="main_copy">Copy</string>
+    <string name="main_share">Share</string>
+    <string name="main_settings">Style</string>
+    <string name="main_about">About</string>
+    <string name="main_last_error">Last error</string>
+    <string name="main_language">Language</string>
+    <string name="main_converting">Converting…</string>
+    <string name="main_info">%1$d×%2$d px · grid %3$d×%4$d · %5$d chars</string>
+    <string name="main_info_imported">From text · grid %1$d×%2$d · %3$d chars</string>
+    <string name="preview_zoom_reset">%1$s× reset</string>
+
+    <!-- Text output -->
+    <string name="text_output_title">Text result</string>
+    <string name="text_output_info">Grid %1$d×%2$d · %3$d chars</string>
+    <string name="text_output_truncated">preview truncated; copy/save gets the full text</string>
+    <string name="text_format_label">Text format</string>
+    <string name="text_format_plain">Plain</string>
+    <string name="text_format_16">16 colors</string>
+    <string name="text_format_true">True color</string>
+    <string name="text_format_hint_plain">Characters only. Opens anywhere, but colors are lost</string>
+    <string name="text_format_hint_16">16 colors picked from the image, each channel cut to 16 levels (the PC-98 4096-color rule). Compact</string>
+    <string name="text_format_hint_true">One real color per cell. Re-imports losslessly</string>
+    <string name="text_format_stats">%1$d colors · %2$s</string>
+    <string name="text_format_stats_plain">no color · %1$s</string>
+    <string name="text_save_txt">Save TXT</string>
+    <string name="text_share">Share TXT</string>
+    <string name="toast_text_copied">ASCII art copied to clipboard</string>
+    <string name="toast_text_saved">Saved to %1$s</string>
+    <string name="toast_text_empty">No text result yet — pick an image first</string>
+
+    <!-- Import text -->
+    <string name="import_title">Import text</string>
+    <string name="import_desc">Paste ASCII art or open a .txt file to render it back into an image. Characters outside the table are substituted with the closest match.\n\nText carrying ANSI color codes (this app\'s "16 colors" and "True color" formats, or colored output copied from a terminal) is detected automatically and its colors are restored as-is. A plain txt has no colors at all — with the "Colorful" style you get a synthetic palette derived from luma, not the original colors.</string>
+    <string name="import_hint">Paste ASCII art here…</string>
+    <string name="import_paste">Paste from clipboard</string>
+    <string name="import_open_file">Open TXT file</string>
+    <string name="import_width">Output width</string>
+    <string name="import_width_value">%1$d px</string>
+    <string name="import_info">Grid %1$d×%2$d · %3$d chars</string>
+    <string name="import_info_large">About %1$d chars · long text, parsed when you tap Generate</string>
+    <string name="import_clear">Clear</string>
+    <string name="import_render">Render image</string>
+    <string name="toast_clipboard_empty">No text in the clipboard</string>
+    <string name="toast_import_empty">Paste some ASCII art or open a txt file first</string>
+    <string name="toast_render_done">Done — see the main screen</string>
+    <string name="toast_txt_loaded">Loaded %1$s</string>
+    <string name="toast_ansi_detected">Detected ANSI color: %1$d colors</string>
+
+    <!-- Style settings -->
+    <string name="settings_title">Style</string>
+    <string name="settings_preset">Preset</string>
+    <string name="settings_char_width">Char width</string>
+    <string name="settings_char_width_value">%1$d cols</string>
+    <string name="settings_color_fill">Image color fill</string>
+    <string name="settings_color_fill_value">%1$d%%</string>
+    <string name="settings_char_reverse">Reverse chars</string>
+    <string name="settings_char_reverse_desc">Swap dark and light, good for light background</string>
+    <string name="settings_color_reverse">Reverse color</string>
+    <string name="settings_color_reverse_desc">Punch the glyph out of a solid cell</string>
+    <string name="settings_keep_color">Keep image color</string>
+    <string name="settings_keep_color_desc">Turn off to force monochrome</string>
+    <string name="settings_blocks_only">Color blocks only</string>
+    <string name="settings_blocks_only_desc">Fill each cell with its image color, no glyph. Set block size with "Character width"</string>
+    <string name="settings_monospace">Monospace font</string>
+    <string name="settings_monospace_desc">Looks more like a terminal</string>
+    <string name="settings_text_mode">Text preview</string>
+    <string name="settings_text_mode_desc">See the raw characters, long press to copy</string>
+    <string name="settings_reset">Reset</string>
+    <string name="settings_done">Done</string>
+
+    <!-- Presets -->
+    <string name="preset_terminal">Terminal</string>
+    <string name="preset_newspaper">Newspaper</string>
+    <string name="preset_colorful">Colorful</string>
+    <string name="preset_minimal">Minimal</string>
+    <string name="preset_deepsea">Deep sea</string>
+    <string name="preset_custom">Custom</string>
+
+    <!-- Toasts -->
+    <string name="toast_saved">Saved to %1$s</string>
+    <string name="toast_save_failed">Save failed: %1$s</string>
+    <string name="toast_copied">ASCII art copied to clipboard</string>
+    <string name="toast_copy_failed">Copy failed: %1$s</string>
+    <string name="toast_convert_failed">Convert failed: %1$s</string>
+    <string name="toast_no_image">Pick an image first</string>
+    <string name="toast_no_result">No result yet, please wait</string>
+    <string name="toast_permission_denied">Storage permission is required to save files</string>
+    <string name="toast_capture_failed">Cannot open camera: %1$s</string>
+    <string name="capture_empty_title">The camera returned no photo</string>
+    <string name="capture_empty_message">The camera (or whichever app handled the capture) did not write the photo into the file we asked for, so there is nothing to convert.\n\nYou can use "Pick image" instead — either the gallery or the file picker works.</string>
+    <string name="capture_empty_use_pick">Use "Pick image"</string>
+    <string name="toast_pick_failed">Cannot open gallery: %1$s</string>
+
+    <!-- Batch -->
+    <string name="batch_title">Batch convert</string>
+    <string name="batch_pick">Pick</string>
+    <string name="batch_pick_title">Pick images from</string>
+    <string name="batch_pick_gallery">System gallery (multiple)</string>
+    <string name="batch_pick_file">File browser (multiple)</string>
+    <string name="batch_pick_too_many">Up to %1$d at a time — the rest were ignored</string>
+    <string name="batch_all_failed_title">None of these images could be read</string>
+    <string name="batch_all_failed_message">Most likely the system gallery channel is not working on this device — it has nothing to do with the images themselves.\nTap the button below to pick them again with the file browser, which usually works.</string>
+    <string name="batch_convert_all">Convert all</string>
+    <string name="batch_save_all">Save all</string>
+    <string name="batch_clear">Clear</string>
+    <string name="batch_empty">No image selected. Tap \"Pick\" at the top right — both the gallery and the file browser work, use whichever one behaves.</string>
+    <string name="batch_selected_count">%1$d selected</string>
+    <string name="batch_item_pending">Pending</string>
+    <string name="batch_item_converting">Converting…</string>
+    <string name="batch_item_done">%1$d chars</string>
+    <string name="batch_item_failed">Failed</string>
+    <string name="batch_progress">Converting %1$d/%2$d</string>
+    <string name="batch_saved_count">%1$d images saved to gallery</string>
+    <string name="batch_nothing_to_convert">Pick images first</string>
+
+    <!-- About -->
+    <string name="about_title">About</string>
+    <string name="about_message">ASCII Image Converter v%1$s\n\nThe image is scaled down to a character grid, every cell is mapped to one of 92 characters by its BT.601 luma, then drawn cell by cell. Color fill, char reverse and color reverse are all adjustable.\n\nThe result can be saved as PNG or TXT, copied or shared.\n\nEverything runs on device, nothing is uploaded.</string>
+    <string name="about_ok">Got it</string>
+
+    <!-- Error diagnostics -->
+    <string name="error_title">%1$s failed</string>
+    <string name="error_last_title">Last error</string>
+    <string name="error_copy">Copy details</string>
+    <string name="error_clear">Clear</string>
+    <string name="error_cleared">Error record cleared</string>
+    <string name="error_none">No error recorded</string>
+    <string name="toast_error_copied">Error details copied — send them to the developer</string>
+
+    <!-- Language -->
+    <string name="lang_title">App language</string>
+    <string name="lang_system">Follow system</string>
+    <string name="lang_chinese">简体中文</string>
+    <string name="lang_english">English</string>
+    <string name="lang_changed">Language switched (the screen will reload)</string>
+    <string name="about_language">Language setting: %1$s\nLanguage actually in use: %2$s</string>
+
+    <!-- Image source -->
+    <string name="source_title">Pick an image from</string>
+    <string name="source_gallery">System gallery</string>
+    <string name="source_gallery_desc">Photo picker, no permission needed, large previews</string>
+    <string name="source_file">File picker</string>
+    <string name="source_file_desc">Browse by folder, more compatible — use it if an image fails to open</string>
+    <string name="source_read_failed">This image cannot be read</string>
+    <string name="source_retry_with_file">Pick again with file browser</string>
+    <string name="toast_source_failed">Cannot open the picker: %1$s</string>
+
+    <string name="action_close">Close</string>
+    <string name="action_cancel">Cancel</string>
+    <!-- PC-98 look (1.4.0) -->
+    <string name="preset_pc98">PC-98</string>
+    <string name="dither_none">No dither</string>
+    <string name="dither_ordered">Ordered</string>
+    <string name="dither_diffuse">Error diffusion</string>
+    <string name="settings_pc98">PC-98 look</string>
+    <string name="settings_pc98_desc">Snap to 16 colors (4096-color bank, 4 bits per channel)</string>
+    <string name="settings_dither">Mid-tones</string>
+    <string name="settings_dither_desc">Colors 16 can\'t show are faked with dot patterns</string>
+    <string name="settings_palette">Palette</string>
+    <string name="settings_palette_desc">Pick your own 16 colors, or read them from the image</string>
+    <string name="palette_title">PC-98 palette</string>
+    <string name="palette_auto">Auto pick</string>
+    <string name="palette_summary_auto">Auto</string>
+    <string name="palette_summary_custom">Custom, %1$d colors</string>
+    <string name="palette_hint">%1$d colors · 16 levels per channel (0 / 17 / 34 … 255)</string>
+    <string name="palette_builtin">Built-in sets</string>
+    <string name="palette_edit_hint">Tap a swatch above, then use the three sliders</string>
+    <string name="palette_channel">%1$s level %2$d (%3$d)</string>
+    <string name="input_title_char_width">Character width</string>
+    <string name="input_title_color_fill">Color fill</string>
+    <string name="input_hint_char_width">%1$d to %2$d columns</string>
+    <string name="input_hint_color_fill">0 to 100 (percent)</string>
+    <string name="input_out_of_range">Enter an integer between %1$d and %2$d</string>
+    <string name="input_hint_tap">Tap a number to type it</string>
+</resources>
